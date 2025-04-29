@@ -1,25 +1,21 @@
 import streamlit as st
 from sentence_transformers import SentenceTransformer
 import numpy as np
-import google.generativeai as genai
 import weaviate
 import json
-from dotenv import load_dotenv
 import os
+import requests
 
-load_dotenv()  # take environment variables from .env.
+from dotenv import load_dotenv
+load_dotenv()
 
-API_KEY = os.getenv("API_KEY")
-
-# Constants
-HISTORY_FILE = "/home/shtlp_0012/codes/RAG/conversation_history.json"
+# Constants (reading from .env)
+HISTORY_FILE = os.getenv("HISTORY_FILE", "conversation_history.json")
+OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 
 # Streamlit title
-st.title("World War History Q&A")
-
-# Initialize Gemini API
-genai.configure(api_key=API_KEY)
-model = genai.GenerativeModel('gemini-2.0-flash')
+st.title(f"World War History Q&A (Powered by Local {OLLAMA_MODEL.capitalize()} 🦙)")
 
 # Connect to Weaviate
 client = weaviate.Client(url="http://localhost:8080")
@@ -44,7 +40,7 @@ def search_weaviate(query, top_k=5):
 
     return results
 
-# Function to load conversation history from JSON file
+# Function to load conversation history
 def load_history():
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, "r", encoding="utf-8") as f:
@@ -52,10 +48,24 @@ def load_history():
     else:
         return []
 
-# Function to save conversation history to JSON file
+# Function to save conversation history
 def save_history(history):
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump(history, f, indent=2)
+
+# Function to query local LLM via Ollama
+def query_llama(prompt):
+    payload = {
+        "model": OLLAMA_MODEL,
+        "prompt": prompt,
+        "stream": False
+    }
+    try:
+        response = requests.post(OLLAMA_URL, json=payload)
+        response.raise_for_status()
+        return response.json().get("response", "").strip()
+    except Exception as e:
+        return f"Error querying {OLLAMA_MODEL}: {e}"
 
 # Initialize conversation history
 if "history" not in st.session_state:
@@ -72,27 +82,24 @@ if question:
 You are a factual Q&A assistant based on historical documents.
 
 Instructions:
-- Answer questions **accurately and concisely** based only on the provided text.
-- If the answer is a **date, name, event**, or **simple fact**, respond with **just that** unless a full sentence is absolutely necessary.
-- If a question contains a **wrong assumption**, **correct it politely** first, then provide the correct information.
-- If the answer is **not found in the provided text**, respond clearly: **"Answer not found in the text."**
-- Do not invent or assume any information beyond the given text.
+- Answer questions accurately and concisely using only the provided context.
+- If the answer is a date, name, or simple fact, respond with just that, avoiding full sentences unless necessary.
+- If the question contains a wrong assumption, correct it politely and provide the correct answer.
+- If the answer is not found in the text, respond with: "Answer not found in the text."
+- Do not make up information beyond what is given.
 
 Context:
 {full_context}
 
-Question:
-{question}
-
+Question: {question}
 Answer:
 """
 
-    response = model.generate_content(prompt)
-    answer = response.text
+    answer = query_llama(prompt)
 
-    # Save the Q&A into session state 
+    # Save the Q&A into session state
     st.session_state.history.append({"question": question, "answer": answer})
-    save_history(st.session_state.history)  # Also save to local file immediately
+    save_history(st.session_state.history)
 
     # Display latest answer
     st.subheader("Answer:")
