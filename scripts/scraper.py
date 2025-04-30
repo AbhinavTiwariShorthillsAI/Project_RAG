@@ -35,7 +35,7 @@ def extract_valid_links(soup):
             links.append(full_link)
     return list(set(links))
 
-def auto_crawl_and_save_one_file(start_urls, max_pages=300, output_file="modern_history_combined.txt"):
+def auto_crawl_and_save_one_file(start_urls, max_pages=300, output_file="data/modern_history_combined.txt"):
     visited = set()
     to_visit = list(start_urls)
     full_text = ""
@@ -95,4 +95,4 @@ start_urls = [
 ]
 
 # Start crawling and save into one big file
-auto_crawl_and_save_one_file(start_urls, max_pages=300, output_file="modern_history_combined.txt")
+auto_crawl_and_save_one_file(start_urls, max_pages=300, output_file="data/modern_history_combined.txt")
