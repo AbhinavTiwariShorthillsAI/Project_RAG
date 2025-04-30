@@ -9,8 +9,6 @@ from rouge_score import rouge_scorer
 from bert_score import score as bert_score
 from typing import Dict
 
-load_dotenv()
-
 # Config
 INPUT_FILE = "data/qa_with_predictions_part2.xlsx"
 OUTPUT_FILE = "data/qa_evaluated_scores_part2.xlsx"
