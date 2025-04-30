@@ -1,0 +1,7 @@
+{
+    "rouge_score": 0.37677794197569453,
+    "cosine_similarity": 0.6118567591182071,
+    "bert_score_f1": 0.6040143110939452,
+    "final_score": 0.572281590133486,
+    "grade": "F (Poor)"
+}

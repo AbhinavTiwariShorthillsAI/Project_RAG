@@ -1,6 +1,7 @@
 import os
 import requests
 import pandas as pd
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from dotenv import load_dotenv
 from time import sleep
 
@@ -15,10 +16,19 @@ with open("modern_history_combined.txt", "r", encoding="utf-8") as f:
     text = f.read()
 
 # Split into chunks
-def split_text(text, chunk_size=800):
-    return [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
-
-chunks = split_text(text)
+def split_text_semantic(text, chunk_size=800, chunk_overlap=100):
+    """
+    Splits input text into semantically coherent chunks using smart separators.
+    This helps preserve sentence integrity and context for better retrieval.
+    """
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        separators=["\n\n", ".", "!", "?", "\n", " "],  # ordered by priority
+        length_function=len
+    )
+    return splitter.split_text(text)
+chunks = split_text_semantic(text)
 
 questions = []
 answers = []
@@ -85,6 +95,6 @@ print("\n✅ Q&A generation complete!")
 
 # Save to CSV
 qa_df = pd.DataFrame({"Question": questions, "Answer": answers})
-qa_df.to_csv("qa_dataset_1000.csv", index=False)
+qa_df.to_csv("qa_dataset_1000_part2.csv", index=False)
 
 print(f"✅ Saved {len(qa_df)} Q&A pairs to qa_dataset_1000.csv")

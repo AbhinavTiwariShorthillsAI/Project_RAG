@@ -1,5 +1,5 @@
 import streamlit as st
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer, CrossEncoder
 import numpy as np
 import weaviate
 import json
@@ -8,6 +8,8 @@ import requests
 
 from dotenv import load_dotenv
 load_dotenv()
+
+# ! sudo docker run -d -p 8080:8080 semitechnologies/weaviate:latest
 
 # Constants (reading from .env)
 HISTORY_FILE = os.getenv("HISTORY_FILE", "conversation_history.json")
@@ -21,7 +23,8 @@ st.title(f"World War History Q&A (Powered by Local {OLLAMA_MODEL.capitalize()} ð
 client = weaviate.Client(url="http://localhost:8080")
 
 # Load embedding model
-embed_model = SentenceTransformer('all-MiniLM-L6-v2')
+embed_model = SentenceTransformer('intfloat/e5-base-v2')
+reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 
 # Function to search inside Weaviate
 def search_weaviate(query, top_k=5):
@@ -67,6 +70,14 @@ def query_llama(prompt):
     except Exception as e:
         return f"Error querying {OLLAMA_MODEL}: {e}"
 
+def rerank_chunks(query, chunks, top_k=3):
+    if not chunks:
+        return []
+    pairs = [(query, chunk) for chunk in chunks]
+    scores = reranker.predict(pairs)
+    reranked = [chunk for _, chunk in sorted(zip(scores, chunks), reverse=True)]
+    return reranked[:top_k]
+
 # Initialize conversation history
 if "history" not in st.session_state:
     st.session_state.history = load_history()
@@ -75,8 +86,9 @@ if "history" not in st.session_state:
 question = st.text_input("Ask your question about World War History:")
 
 if question:
-    relevant_chunks = search_weaviate(question, top_k=3)
-    full_context = "\n".join(relevant_chunks)[:1500]
+    retrieved_chunks = search_weaviate(question, top_k=10)  # get more for better reranking
+    full_context = rerank_chunks(question, retrieved_chunks, top_k=5)
+
 
     prompt = f"""
 You are a factual Q&A assistant based on historical documents.

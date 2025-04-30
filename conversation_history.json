@@ -94,5 +94,45 @@
   {
     "question": "When did Germany attack poland",
     "answer": "1 August 1914 (not Poland, but Russia in Poland)."
+  },
+  {
+    "question": "Hitler wife name",
+    "answer": "Answer not found in the text."
+  },
+  {
+    "question": "Hitler's Nationaloty",
+    "answer": "Error querying mistral: 404 Client Error: Not Found for url: http://localhost:11434/api/generate"
+  },
+  {
+    "question": "Hitler's Nationality",
+    "answer": "Error querying mistral: 404 Client Error: Not Found for url: http://localhost:11434/api/generate"
+  },
+  {
+    "question": "Hitler's Nationality",
+    "answer": "Error querying mistral: 404 Client Error: Not Found for url: http://localhost:11434/api/generate"
+  },
+  {
+    "question": "What is Hitler's Nationaloty",
+    "answer": "Error querying mistral: 404 Client Error: Not Found for url: http://localhost:11434/api/generate"
+  },
+  {
+    "question": "Who were allied forces?",
+    "answer": "Error querying mistral: 404 Client Error: Not Found for url: http://localhost:11434/api/generate"
+  },
+  {
+    "question": " Who were allied forces?",
+    "answer": "Error querying mistral: 404 Client Error: Not Found for url: http://localhost:11434/api/generate"
+  },
+  {
+    "question": "who were allied forces?",
+    "answer": "Error querying llama3: 404 Client Error: Not Found for url: http://localhost:11434/api/generate"
+  },
+  {
+    "question": "Who were allied forces?",
+    "answer": "The Allied powers mentioned include:\n\n* United States\n* France\n* Britain\n* Soviet Union\n\nAdditionally, mention is made of \"Allied legions\", which would eventually be taken up by contingents of \"allied auxiliary troops, called auxilia\"."
+  },
+  {
+    "question": "Who were against allied forces?",
+    "answer": "Germans"
   }
 ]
