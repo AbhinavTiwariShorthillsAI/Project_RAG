@@ -50,7 +50,7 @@ PROJECT_RAG/
 ### 1. Clone and Setup
 
 ```bash
-git clone https://github.com/yourusername/PROJECT_RAG.git
+git clone https://github.com/AbhinavTiwariShorthillsAI/PROJECT_RAG.git
 cd PROJECT_RAG
 python -m venv venv
 source venv/bin/activate
