@@ -7,12 +7,11 @@ from typing import List
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer, CrossEncoder
 import streamlit as st
+from io import StringIO
 
-load_dotenv()
-
-HISTORY_FILE = os.getenv("HISTORY_FILE", "data/conversation_history.json")
+HISTORY_FILE = "data/conversation_history.json"
 OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
+OLLAMA_MODEL = "llama3"
 
 class WeaviateRetriever:
     def __init__(self, weaviate_url: str = "http://localhost:8080", embedding_model: str = "intfloat/e5-base-v2"):
@@ -75,10 +74,41 @@ class QAApp:
             json.dump(self.history, f, indent=2)
 
     def run(self):
+        st.markdown("""
+            <style>
+                .stTextInput > div > div > input {
+                    font-size: 18px;
+                    padding: 0.5em;
+                    font-family: 'Segoe UI', sans-serif;
+                }
+                .stMarkdown h1 {
+                    text-align: center;
+                    font-size: 2em;
+                    font-family: 'Georgia', serif;
+                }
+                .expander-header p {
+                    margin: 0;
+                    font-weight: bold;
+                    font-family: 'Segoe UI', sans-serif;
+                }
+            </style>
+        """, unsafe_allow_html=True)
+
         st.title(f"World War History Q&A (Powered by Local {OLLAMA_MODEL.capitalize()} 🦙)")
 
         if "history" not in st.session_state:
             st.session_state.history = self.history
+
+        st.sidebar.title("📜 Conversation History")
+        if st.sidebar.button("🧹 Clear History"):
+            st.session_state.history = []
+            self.history = []
+            self.save_history()
+            st.experimental_rerun()
+
+        if st.sidebar.button("⬇️ Download History"):
+            history_str = json.dumps(st.session_state.history, indent=2)
+            st.sidebar.download_button("Download", data=history_str, file_name="conversation_history.json")
 
         question = st.text_input("Ask your question about World War History:")
         if question:
@@ -102,20 +132,18 @@ Context:
 Question: {question}
 Answer:
 """
-
             answer = self.llm.query(prompt)
             st.session_state.history.append({"question": question, "answer": answer})
             self.save_history()
 
-            st.subheader("Answer:")
-            st.write(answer)
+            st.markdown("**Answer:**")
+            st.markdown(f"<div style='padding: 0.75em; background-color: #f4f4f4; border-radius: 6px;'>{answer}</div>", unsafe_allow_html=True)
 
         if st.session_state.history:
-            st.sidebar.title("Conversation History")
-            for idx, entry in enumerate(st.session_state.history):
-                st.sidebar.markdown(f"**Q{idx+1}:** {entry['question']}")
-                st.sidebar.markdown(f"**A{idx+1}:** {entry['answer']}")
-                st.sidebar.markdown("---")
+            for idx, entry in reversed(list(enumerate(st.session_state.history))):
+                with st.sidebar.expander(f"Q{idx+1}: {entry['question'][:60]}..."):
+                    st.markdown(f"**Q:** {entry['question']}")
+                    st.markdown(f"**A:** {entry['answer']}")
 
 if __name__ == "__main__":
     app = QAApp()
