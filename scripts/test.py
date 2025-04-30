@@ -18,9 +18,9 @@ SUMMARY_FILE = "data/evaluation_summary_llama3.json"
 
 # Metric Weights
 METRIC_WEIGHTS = {
-    "rouge_score": 0.15,
-    "cosine_similarity": 0.3,
-    "bert_score_f1": 0.55
+    "rouge_score": 0,
+    "cosine_similarity": 0.4,
+    "bert_score_f1": 0.6
 }
 
 class QAEvaluator:
