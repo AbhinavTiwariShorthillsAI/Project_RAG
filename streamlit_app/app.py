@@ -4,12 +4,16 @@ import numpy as np
 import requests
 import weaviate
 from typing import List
+from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer, CrossEncoder
 import streamlit as st
+from io import StringIO
 
-HISTORY_FILE = "data/conversation_history.json"
+load_dotenv()
+
+HISTORY_FILE = os.getenv("HISTORY_FILE", "data/conversation_history.json")
 OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "llama3"
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 
 class WeaviateRetriever:
     def __init__(self, weaviate_url: str = "http://localhost:8080", embedding_model: str = "intfloat/e5-base-v2"):
