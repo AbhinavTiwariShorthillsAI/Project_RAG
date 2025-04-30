@@ -4,10 +4,8 @@ import numpy as np
 import requests
 import weaviate
 from typing import List
-from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer, CrossEncoder
 import streamlit as st
-from io import StringIO
 
 HISTORY_FILE = "data/conversation_history.json"
 OLLAMA_URL = "http://localhost:11434/api/generate"

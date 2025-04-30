@@ -3,7 +3,6 @@ import json
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 from rouge_score import rouge_scorer
 from bert_score import score as bert_score

@@ -2,7 +2,6 @@ import os
 import requests
 import pandas as pd
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from dotenv import load_dotenv
 from time import sleep
 from typing import List
 
