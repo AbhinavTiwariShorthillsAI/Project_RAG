@@ -2,10 +2,21 @@ import requests
 from bs4 import BeautifulSoup
 import time
 import random
+from typing import List
 
 BASE_URL = "https://en.wikipedia.org"
 
-def scrape_wikipedia_page(url):
+def scrape_wikipedia_page(url: str) -> tuple[str, BeautifulSoup] | tuple[None, None]:
+    """
+    Scrapes the main paragraph content from a given Wikipedia page.
+
+    Args:
+        url (str): Full URL of the Wikipedia page.
+
+    Returns:
+        tuple[str, BeautifulSoup] | tuple[None, None]: Tuple containing the extracted text and parsed soup,
+        or (None, None) on error.
+    """
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
         response = requests.get(url, headers=headers)
@@ -26,7 +37,16 @@ def scrape_wikipedia_page(url):
         print(f"Error scraping {url}: {e}")
         return None, None
 
-def extract_valid_links(soup):
+def extract_valid_links(soup: BeautifulSoup) -> List[str]:
+    """
+    Extracts valid internal Wikipedia article links from a page soup.
+
+    Args:
+        soup (BeautifulSoup): Parsed HTML of the Wikipedia page.
+
+    Returns:
+        List[str]: List of full Wikipedia article URLs.
+    """
     links = []
     for link in soup.find_all('a', href=True):
         href = link['href']
@@ -35,7 +55,15 @@ def extract_valid_links(soup):
             links.append(full_link)
     return list(set(links))
 
-def auto_crawl_and_save_one_file(start_urls, max_pages=300, output_file="data/modern_history_combined.txt"):
+def auto_crawl_and_save_one_file(start_urls: List[str], max_pages: int = 300, output_file: str = "data/modern_history_combined.txt") -> None:
+    """
+    Automatically crawls Wikipedia articles starting from seed URLs and stores the content in one file.
+
+    Args:
+        start_urls (List[str]): List of Wikipedia URLs to start crawling from.
+        max_pages (int): Maximum number of pages to crawl.
+        output_file (str): Path to the file where the combined output is saved.
+    """
     visited = set()
     to_visit = list(start_urls)
     full_text = ""
@@ -54,45 +82,34 @@ def auto_crawl_and_save_one_file(start_urls, max_pages=300, output_file="data/mo
             full_text += f"\n===== End of {title} =====\n\n"
             visited.add(url)
 
-            # Expand crawl
             new_links = extract_valid_links(soup)
             random.shuffle(new_links)
             to_visit.extend(new_links)
 
         time.sleep(1)
 
-    # After crawling, save everything into one big file
     with open(output_file, "w", encoding="utf-8") as f:
         f.write(full_text)
 
     print(f"✅ Saved all combined text into {output_file} with {len(visited)} pages.")
 
-# -----------------------------
-# Start Points for WW1 + WW2 + Related topics
-# -----------------------------
+if __name__ == "__main__":
+    start_urls = [
+        "https://en.wikipedia.org/wiki/World_War_I",
+        "https://en.wikipedia.org/wiki/Treaty_of_Versailles",
+        "https://en.wikipedia.org/wiki/League_of_Nations",
+        "https://en.wikipedia.org/wiki/Battle_of_the_Somme",
+        "https://en.wikipedia.org/wiki/Trench_warfare",
+        "https://en.wikipedia.org/wiki/World_War_II",
+        "https://en.wikipedia.org/wiki/D-Day",
+        "https://en.wikipedia.org/wiki/Holocaust",
+        "https://en.wikipedia.org/wiki/Atomic_bombings_of_Hiroshima_and_Nagasaki",
+        "https://en.wikipedia.org/wiki/Allies_of_World_War_II",
+        "https://en.wikipedia.org/wiki/Cold_War",
+        "https://en.wikipedia.org/wiki/Nuremberg_trials",
+        "https://en.wikipedia.org/wiki/Appeasement",
+        "https://en.wikipedia.org/wiki/Blitzkrieg",
+        "https://en.wikipedia.org/wiki/Operation_Barbarossa"
+    ]
 
-start_urls = [
-    # World War 1
-    "https://en.wikipedia.org/wiki/World_War_I",
-    "https://en.wikipedia.org/wiki/Treaty_of_Versailles",
-    "https://en.wikipedia.org/wiki/League_of_Nations",
-    "https://en.wikipedia.org/wiki/Battle_of_the_Somme",
-    "https://en.wikipedia.org/wiki/Trench_warfare",
-    
-    # World War 2
-    "https://en.wikipedia.org/wiki/World_War_II",
-    "https://en.wikipedia.org/wiki/D-Day",
-    "https://en.wikipedia.org/wiki/Holocaust",
-    "https://en.wikipedia.org/wiki/Atomic_bombings_of_Hiroshima_and_Nagasaki",
-    "https://en.wikipedia.org/wiki/Allies_of_World_War_II",
-    
-    # Miscellaneous Topics
-    "https://en.wikipedia.org/wiki/Cold_War",
-    "https://en.wikipedia.org/wiki/Nuremberg_trials",
-    "https://en.wikipedia.org/wiki/Appeasement",
-    "https://en.wikipedia.org/wiki/Blitzkrieg",
-    "https://en.wikipedia.org/wiki/Operation_Barbarossa"
-]
-
-# Start crawling and save into one big file
-auto_crawl_and_save_one_file(start_urls, max_pages=300, output_file="data/modern_history_combined.txt")
+    auto_crawl_and_save_one_file(start_urls)

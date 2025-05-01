@@ -24,11 +24,32 @@ METRIC_WEIGHTS = {
 }
 
 class QAEvaluator:
+    """
+    Evaluates predicted answers against ground truth using multiple NLP metrics:
+    - Cosine similarity using sentence-transformers
+    - ROUGE-L score
+    - BERTScore F1
+    Calculates a weighted final score and assigns a qualitative grade.
+    """
+
     def __init__(self):
+        """
+        Initializes the embedding model and ROUGE scorer.
+        """
         self.similarity_model = SentenceTransformer("intfloat/e5-base-v2")
         self.rouge = rouge_scorer.RougeScorer(['rougeL'], use_stemmer=True)
 
     def calculate_metrics(self, generated: str, reference: str) -> Dict[str, float]:
+        """
+        Calculates various similarity metrics between generated and reference answers.
+
+        Args:
+            generated (str): The model-generated answer.
+            reference (str): The correct ground truth answer.
+
+        Returns:
+            Dict[str, float]: Dictionary of all metric scores and final weighted score.
+        """
         emb_gen = self.similarity_model.encode(generated)
         emb_ref = self.similarity_model.encode(reference)
         cosine_sim = np.dot(emb_gen, emb_ref) / (np.linalg.norm(emb_gen) * np.linalg.norm(emb_ref))
@@ -47,6 +68,15 @@ class QAEvaluator:
         }
 
     def calculate_grade(self, score: float) -> str:
+        """
+        Converts a numeric score into a qualitative letter grade.
+
+        Args:
+            score (float): Final evaluation score.
+
+        Returns:
+            str: Grade label.
+        """
         if score >= 0.90: return "A (Excellent)"
         elif score >= 0.80: return "B (Good)"
         elif score >= 0.70: return "C (Average)"
@@ -54,6 +84,14 @@ class QAEvaluator:
         else: return "F (Poor)"
 
     def evaluate_excel(self, input_path: str, output_path: str, summary_path: str) -> None:
+        """
+        Reads Q&A pairs from Excel, evaluates model answers, and writes results.
+
+        Args:
+            input_path (str): Path to input Excel file with 'Question', 'Answer', and 'predicted_answer'.
+            output_path (str): Path to save detailed scores per question.
+            summary_path (str): Path to save overall metrics summary.
+        """
         df = pd.read_excel(input_path)
 
         if not all(col in df.columns for col in ["Question", "Answer", "predicted_answer"]):

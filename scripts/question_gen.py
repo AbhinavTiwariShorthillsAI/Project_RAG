@@ -13,15 +13,53 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 
 class LLaMAQuestionGenerator:
+    """
+    Class for generating Q&A pairs from historical text using a local LLaMA model via Ollama.
+    
+    Methods:
+        load_text(path): Load text content from a file.
+        split_text_semantic(text): Split text into semantically coherent chunks.
+        query_llama(prompt): Query the LLaMA model with a prompt.
+        generate_qa_pairs(chunks): Generate questions and answers from chunks.
+        save_to_csv(df, output_path): Save generated Q&A pairs to a CSV file.
+    """
+
     def __init__(self, model: str = OLLAMA_MODEL, url: str = OLLAMA_URL):
+        """
+        Initialize the generator with model and Ollama API URL.
+        
+        Args:
+            model (str): Name of the model to query.
+            url (str): URL endpoint for Ollama.
+        """
         self.model = model
         self.url = url
 
     def load_text(self, path: str) -> str:
+        """
+        Load text from a specified file path.
+
+        Args:
+            path (str): File path to the text document.
+
+        Returns:
+            str: The content of the text file.
+        """
         with open(path, "r", encoding="utf-8") as f:
             return f.read()
 
     def split_text_semantic(self, text: str, chunk_size: int = 800, chunk_overlap: int = 100) -> List[str]:
+        """
+        Split text into semantically meaningful chunks using common punctuation.
+
+        Args:
+            text (str): Full text to split.
+            chunk_size (int): Max size of each chunk.
+            chunk_overlap (int): Number of overlapping characters between chunks.
+
+        Returns:
+            List[str]: List of text chunks.
+        """
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
@@ -31,6 +69,15 @@ class LLaMAQuestionGenerator:
         return splitter.split_text(text)
 
     def query_llama(self, prompt: str) -> str:
+        """
+        Query the local LLaMA model via Ollama.
+
+        Args:
+            prompt (str): Input prompt to send to the model.
+
+        Returns:
+            str: Response text from the model.
+        """
         payload = {
             "model": self.model,
             "prompt": prompt,
@@ -44,6 +91,16 @@ class LLaMAQuestionGenerator:
             return f"Error: {e}"
 
     def generate_qa_pairs(self, chunks: List[str], total: int = 500) -> pd.DataFrame:
+        """
+        Generate Q&A pairs from chunks of text.
+
+        Args:
+            chunks (List[str]): List of text chunks to process.
+            total (int): Number of chunks to process (default 500).
+
+        Returns:
+            pd.DataFrame: DataFrame with "Question" and "Answer" columns.
+        """
         questions, answers = [], []
         total = min(total, len(chunks))
         print("\U0001F680 Generating Q&A...")
@@ -84,6 +141,13 @@ Historical text:
         return pd.DataFrame({"Question": questions, "Answer": answers})
 
     def save_to_csv(self, df: pd.DataFrame, output_path: str) -> None:
+        """
+        Save the Q&A DataFrame to a CSV file.
+
+        Args:
+            df (pd.DataFrame): DataFrame containing the questions and answers.
+            output_path (str): Path to save the CSV file.
+        """
         df.to_csv(output_path, index=False)
         print(f"✅ Saved {len(df)} Q&A pairs to {output_path}")
 
