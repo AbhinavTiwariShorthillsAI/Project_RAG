@@ -5,15 +5,12 @@ import numpy as np
 import csv
 from openpyxl import Workbook, load_workbook
 from sentence_transformers import SentenceTransformer
-from dotenv import load_dotenv
 from typing import Generator, Dict, List
-
-load_dotenv()
 
 # Constants
 OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
-DATASET_PATH = os.getenv("DATASET_PATH", "data/qa_dataset_1000_part2.csv")
+OLLAMA_MODEL = "llama3"
+DATASET_PATH = "data/qa_dataset_1000_part2.csv"
 OUTPUT_XLSX = "data/qa_with_predictions_part2.xlsx"
 
 class RAGQuestionAnswering:

@@ -2,15 +2,12 @@ import os
 import requests
 import pandas as pd
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from dotenv import load_dotenv
 from time import sleep
 from typing import List
 
-load_dotenv()
-
 # Constants
 OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
+OLLAMA_MODEL = "llama3"
 
 class LLaMAQuestionGenerator:
     """

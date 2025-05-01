@@ -4,16 +4,13 @@ import numpy as np
 import requests
 import weaviate
 from typing import List
-from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer, CrossEncoder
 import streamlit as st
-from io import StringIO
 
-load_dotenv()
 
-HISTORY_FILE = os.getenv("HISTORY_FILE", "data/conversation_history.json")
+HISTORY_FILE = "data/conversation_history.json"
 OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
+OLLAMA_MODEL = "llama3"
 
 class WeaviateRetriever:
     """Retrieves relevant documents from Weaviate vector store based on semantic similarity."""
@@ -59,7 +56,7 @@ class Reranker:
         self.model = CrossEncoder(model_name)
 
     def rerank(self, query: str, chunks: List[str], top_k: int = 3) -> List[str]:
-        """
+        """ 
         Scores and reranks the text chunks based on the input query.
 
         Args:
