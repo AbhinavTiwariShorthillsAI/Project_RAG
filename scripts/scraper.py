@@ -55,7 +55,11 @@ def extract_valid_links(soup: BeautifulSoup) -> List[str]:
             links.append(full_link)
     return list(set(links))
 
-def auto_crawl_and_save_one_file(start_urls: List[str], max_pages: int = 300, output_file: str = "data/modern_history_combined.txt") -> None:
+def auto_crawl_and_save_one_file(
+        start_urls: List[str], 
+        max_pages: int = 300, 
+        output_file: str = "data/modern_history_combined.txt"
+        ) -> None:
     """
     Automatically crawls Wikipedia articles starting from seed URLs and stores the content in one file.
 

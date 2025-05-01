@@ -1,141 +1,124 @@
 import os
-import json
+import requests
+import weaviate
 import numpy as np
-import pandas as pd
-from tqdm import tqdm
-from dotenv import load_dotenv
+import csv
+from openpyxl import Workbook, load_workbook
 from sentence_transformers import SentenceTransformer
-from rouge_score import rouge_scorer
-from bert_score import score as bert_score
-from typing import Dict
+from dotenv import load_dotenv
+from typing import Generator, Dict, List
 
 load_dotenv()
 
-# Config
-INPUT_FILE = "data/qa_with_predictions_part2.xlsx"
-OUTPUT_FILE = "data/qa_evaluated_scores_part2.xlsx"
-SUMMARY_FILE = "data/evaluation_summary_llama3.json"
+# Constants
+OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
+DATASET_PATH = os.getenv("DATASET_PATH", "data/qa_dataset_1000_part2.csv")
+OUTPUT_XLSX = "data/qa_with_predictions_part2.xlsx"
 
-# Metric Weights
-METRIC_WEIGHTS = {
-    "rouge_score": 0,
-    "cosine_similarity": 0.4,
-    "bert_score_f1": 0.6
-}
-
-class QAEvaluator:
+class RAGQuestionAnswering:
     """
-    A class to evaluate predicted answers against ground truth answers using multiple NLP metrics:
-    - Cosine similarity using sentence embeddings
-    - ROUGE-L score for lexical overlap
-    - BERTScore F1 for deep contextual similarity
-
-    The class calculates a weighted final score and assigns a performance grade.
+    A class to perform retrieval-augmented generation (RAG) on a QA dataset,
+    fetching context from Weaviate and generating answers using a local LLaMA model.
     """
 
     def __init__(self):
-        """
-        Initializes the embedding model and ROUGE scorer used for metric calculations.
-        """
-        self.similarity_model = SentenceTransformer("intfloat/e5-base-v2")
-        self.rouge = rouge_scorer.RougeScorer(['rougeL'], use_stemmer=True)
+        self.client = weaviate.Client("http://localhost:8080")
+        self.embed_model = SentenceTransformer("intfloat/e5-base-v2")
 
-    def calculate_metrics(self, generated: str, reference: str) -> Dict[str, float]:
+    def search_weaviate(self, query: str, top_k: int = 3) -> List[str]:
         """
-        Computes evaluation metrics between a predicted and a reference answer.
-
-        Args:
-            generated (str): The generated answer to evaluate.
-            reference (str): The expected ground truth answer.
-
-        Returns:
-            Dict[str, float]: A dictionary containing individual metric scores and a final weighted score.
+        Retrieves top_k relevant text chunks from Weaviate for a given query.
         """
-        emb_gen = self.similarity_model.encode(generated)
-        emb_ref = self.similarity_model.encode(reference)
-        cosine_sim = np.dot(emb_gen, emb_ref) / (np.linalg.norm(emb_gen) * np.linalg.norm(emb_ref))
-        rouge_score = self.rouge.score(reference, generated)['rougeL'].fmeasure
-        _, _, bert_f1 = bert_score([generated], [reference], lang="en", model_type="bert-base-uncased")
-        final_score = (
-            METRIC_WEIGHTS["rouge_score"] * rouge_score +
-            METRIC_WEIGHTS["cosine_similarity"] * float(cosine_sim) +
-            METRIC_WEIGHTS["bert_score_f1"] * bert_f1.mean().item()
-        )
-        return {
-            "rouge_score": rouge_score,
-            "cosine_similarity": float(cosine_sim),
-            "bert_score_f1": bert_f1.mean().item(),
-            "final_score": final_score
+        query_embedding = self.embed_model.encode([query])
+        query_embedding = np.array(query_embedding).astype(np.float32)
+
+        response = self.client.query.get("WorldWarChunk", ["text"])\
+            .with_near_vector({"vector": query_embedding[0]})\
+            .with_limit(top_k).do()
+
+        return [item["text"] for item in response["data"]["Get"]["WorldWarChunk"]]
+
+    def query_llama(self, prompt: str) -> str:
+        """
+        Sends a prompt to the local LLaMA model via Ollama API and returns the response.
+        """
+        payload = {
+            "model": OLLAMA_MODEL,
+            "prompt": prompt,
+            "stream": False
         }
+        try:
+            response = requests.post(OLLAMA_URL, json=payload)
+            response.raise_for_status()
+            return response.json().get("response", "").strip()
+        except Exception as e:
+            return f"Error querying {OLLAMA_MODEL}: {e}"
 
-    def calculate_grade(self, score: float) -> str:
+    def question_fetch(self, csv_file_path: str) -> Generator[Dict[str, str], None, None]:
         """
-        Assigns a qualitative grade to a numeric score.
-
-        Args:
-            score (float): The final numeric evaluation score.
-
-        Returns:
-            str: A grade (A to F) describing the performance.
+        Yields question-answer pairs from a CSV file with two columns: question and answer.
         """
-        if score >= 0.90: return "A (Excellent)"
-        elif score >= 0.80: return "B (Good)"
-        elif score >= 0.70: return "C (Average)"
-        elif score >= 0.60: return "D (Below Average)"
-        else: return "F (Poor)"
+        with open(csv_file_path, newline='', encoding='utf-8') as csvfile:
+            reader = csv.reader(csvfile)
+            next(reader, None)  # Skip header
+            for row in reader:
+                if row and len(row) >= 2:
+                    yield {"question": row[0], "answer": row[1]}
 
-    def evaluate_excel(self, input_path: str, output_path: str, summary_path: str) -> None:
+    def run(self):
         """
-        Processes an Excel file containing predicted and ground truth answers, evaluates each row,
-        and stores the detailed and summary evaluation results.
-
-        Args:
-            input_path (str): Path to the Excel file containing 'Question', 'Answer', and 'predicted_answer' columns.
-            output_path (str): Path to write the detailed evaluation results with metric columns.
-            summary_path (str): Path to write the summary statistics as JSON.
+        Executes the full RAG pipeline: fetch context, generate answer, write to Excel.
         """
-        df = pd.read_excel(input_path)
+        print(f"\n🤖 World War History Q&A (Powered by {OLLAMA_MODEL})")
 
-        if not all(col in df.columns for col in ["Question", "Answer", "predicted_answer"]):
-            raise ValueError("Excel file must contain 'Question', 'Answer', and 'predicted_answer' columns.")
+        if os.path.exists(OUTPUT_XLSX):
+            wb = load_workbook(OUTPUT_XLSX)
+            ws = wb.active
+        else:
+            wb = Workbook()
+            ws = wb.active
+            ws.append(["Question", "Answer", "predicted_answer", "context"])
 
-        rouge_scores = []
-        cosine_scores = []
-        bert_f1_scores = []
-        final_scores = []
+        for item in self.question_fetch(DATASET_PATH):
+            question = item["question"]
+            ground_truth = item["answer"]
 
-        for _, row in tqdm(df.iterrows(), total=len(df), desc="Evaluating"):
-            reference = str(row["Answer"])
-            prediction = str(row["predicted_answer"])
+            if not question.strip():
+                continue
 
-            metrics = self.calculate_metrics(prediction, reference)
-            rouge_scores.append(metrics["rouge_score"])
-            cosine_scores.append(metrics["cosine_similarity"])
-            bert_f1_scores.append(metrics["bert_score_f1"])
-            final_scores.append(metrics["final_score"])
+            print(f"\n❓ Question: {question}")
 
-        df["rouge_score"] = rouge_scores
-        df["cosine_similarity"] = cosine_scores
-        df["bert_score_f1"] = bert_f1_scores
-        df["final_score"] = final_scores
+            context_chunks = self.search_weaviate(question)
+            context = "\n".join(context_chunks)[:1500]
 
-        df.to_excel(output_path, index=False)
-        print(f"✅ Scores saved to {output_path}")
+            prompt = f"""
+You are a factual Q&A assistant based on historical documents.
 
-        summary = {
-            "rouge_score": np.mean(rouge_scores),
-            "cosine_similarity": np.mean(cosine_scores),
-            "bert_score_f1": np.mean(bert_f1_scores),
-            "final_score": np.mean(final_scores),
-        }
-        summary["grade"] = self.calculate_grade(summary["final_score"])
+Instructions:
+Give answers accurately and concisely based on the provided context.
+Answers should be short and to the point.
+Do not include any disclaimers or unnecessary information.
+Do not make up any information.
+Do not include any references to the source of the information.
+Do not include any additional context or information outside of the provided context.
 
-        with open(summary_path, "w") as f:
-            json.dump(summary, f, indent=4)
-        print(f"📊 Summary saved to {summary_path}")
-        print(json.dumps(summary, indent=2))
+Context:
+{context}
+
+Question: {question}
+Answer:
+"""
+
+            predicted_answer = self.query_llama(prompt)
+            print(f"\n💬 Answer: {predicted_answer}\n")
+
+            ws.append([question, ground_truth, predicted_answer, context])
+            wb.save(OUTPUT_XLSX)
+
+        print(f"\n✅ All predictions saved to: {OUTPUT_XLSX}")
 
 
 if __name__ == "__main__":
-    evaluator = QAEvaluator()
-    evaluator.evaluate_excel(INPUT_FILE, OUTPUT_FILE, SUMMARY_FILE)
+    rag_qa = RAGQuestionAnswering()
+    rag_qa.run()

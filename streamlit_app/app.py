@@ -138,23 +138,16 @@ class QAApp:
         """Launches the Streamlit UI and handles user interactions."""
         st.markdown("""
             <style>
-                .stTextInput > div > div > input {
-                    font-size: 18px;
-                    padding: 0.5em;
-                    font-family: 'Segoe UI', sans-serif;
-                }
-                .stMarkdown h1 {
-                    text-align: center;
-                    font-size: 2em;
-                    font-family: 'Georgia', serif;
-                }
-                .expander-header p {
-                    margin: 0;
-                    font-weight: bold;
-                    font-family: 'Segoe UI', sans-serif;
+                textarea {
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+                resize: none !important;
+                height: 30px !important;
+                font-size: 16px;
+                font-family: 'Monolisa', monospace;
                 }
             </style>
-        """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
         st.title(f"World War History Q&A (Powered by Local {OLLAMA_MODEL.capitalize()} 🦙)")
 
