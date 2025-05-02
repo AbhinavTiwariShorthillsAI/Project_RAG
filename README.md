@@ -1,148 +1,169 @@
-# 🧠 PROJECT_RAG – Semantic Retrieval-Augmented Generation (RAG) System for Historical Q&A
 
-This project is a **Retrieval-Augmented Generation (RAG)** system designed to answer questions from historical documents (like World War history) using local models and open-source tools.
+# 🧠 RAG Chatbot on World War History using Wikipedia
 
----
+## 📌 Project Overview
 
-## 🚀 Key Features
+This project implements a Retrieval-Augmented Generation (RAG) pipeline tailored to answer queries related to **World War history** using data scraped from **Wikipedia**. It integrates:
 
-- 🔎 **Semantic Chunking**: Smart text splitting using `RecursiveCharacterTextSplitter`
-- 🧠 **Embeddings**: Generated with `intfloat/e5-base-v2`
-- 🔍 **Weaviate Vector DB**: Fast and scalable vector storage + search
-- 🧮 **Cross-Encoder Re-ranking**: Improves retrieval accuracy
-- 💬 **Local LLM (LLaMA3 via Ollama)**: Offline inference with high quality
-- 📊 **Evaluation Metrics**: ROUGE-L, cosine similarity, BERTScore-F1
-- 🧪 **Streamlit UI**: Ask questions interactively with real-time answers
+- Web scraping to fetch historical content
+- Semantic chunking and vector embeddings (using Sentence Transformers)
+- Weaviate as a vector store
+- Local LLMs (Mistral, LLaMA3 via Ollama)
+- Streamlit interface for chatbot
+- Evaluation pipeline with custom metrics and RAGAS-based scores
 
 ---
 
-## 🧱 Project Structure
+## 🔍 Why World War Data?
 
-```
-PROJECT_RAG/
-├── app/                    # Core logic
-│   └── embedding.py        # Chunk creation + upload
-│
-├── streamlit_app/
-│   └── app.py              # Streamlit chatbot
-│
-├── scripts/
-│   ├── question_gen.py     # Auto-generate Q&A
-│   ├── test.py             # Evaluation pipeline
-│   └── testing_data.py     # Predict answers for questions
-│
-├── data/
-│   ├── modern_history_combined.txt
-│   ├── qa_dataset_1000.csv
-│   ├── qa_with_predictions.xlsx
-│   └── qa_evaluated_scores.xlsx
-│
-├── .env                    # Environment variables
-├── .gitignore
-├── requirements.txt
-└── README.md
-```
+| Criteria              | Reason                                                                 |
+|-----------------------|------------------------------------------------------------------------|
+| 📚 Volume             | Massive structured and unstructured data on World War available online |
+| ❓ Question Diversity  | Spans events, leaders, timelines, strategies, causes, and consequences |
+| ✅ Relevance          | Suitable to test LLM's historical factual consistency                  |
+| 🧪 Test Scope         | Enables meaningful evaluation across semantic and factual dimensions   |
 
 ---
 
-## ⚙️ Setup Instructions
+## 🏗️ Project Architecture
 
-### 1. Clone and Setup
-
-```bash
-git clone https://github.com/AbhinavTiwariShorthillsAI/PROJECT_RAG.git
-cd PROJECT_RAG
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 2. Configure `.env`
-
-Create a `.env` file with:
-
-```
-OLLAMA_MODEL=llama3
-DATASET_PATH=data/qa_dataset_1000.csv
-HISTORY_FILE=conversation_history.json
-```
-
-### 3. Start Ollama and Weaviate
-
-```bash
-# Start Ollama (with LLaMA3 model)
-ollama run llama3
-
-# Start Weaviate with Docker
-docker run -d -p 8080:8080 semitechnologies/weaviate:latest
-```
+![Architecture](assets/Project_architecture.png)
 
 ---
 
-## 🧪 How to Use
+## 🕸️ Web Scraping
 
-### ✅ Index Text into Weaviate
-
-```bash
-python app/embedding.py
-```
-
-### ✅ Generate Questions + Answers
-
-```bash
-python scripts/question_gen.py
-```
-
-### ✅ Generate Predictions for Existing Qs
-
-```bash
-python scripts/testing_data.py
-```
-
-### ✅ Evaluate Model Accuracy
-
-```bash
-python scripts/test.py
-```
-
-### ✅ Launch Streamlit Chatbot
-
-```bash
-streamlit run streamlit_app/app.py
-```
+- Scraped the **Wikipedia page for World War II**, followed relevant internal links to extract sub-topic content.
+- Used `requests`, `BeautifulSoup`, and `re` to clean data and store it in text format.
 
 ---
 
-## 📊 Evaluation Metrics
+## 🧩 Chunking Techniques: Fixed vs Semantic
 
-| Metric           | Description                                 |
-|------------------|---------------------------------------------|
-| **ROUGE-L**      | Overlap in word sequences (surface match)   |
-| **Cosine Similarity** | Vector-based semantic similarity       |
-| **BERTScore F1** | Deep contextual alignment with reference    |
-| **Final Score**  | Weighted composite of all above             |
+Initially, we used **fixed-size chunks** of 1000 characters with 200 character overlap. Later, we switched to **semantic chunking** using sentence boundaries.
 
-Grades (A to F) are computed from final score thresholds.
+| Feature                  | Fixed Chunking             | Semantic Chunking                |
+|--------------------------|----------------------------|----------------------------------|
+| 📏 Size Control          | Manual (chars)             | Automatic (sentence boundaries)  |
+| 🧠 Context Preservation  | Often breaks sentences      | Retains complete ideas           |
+| 🔍 Relevance             | Medium                     | High                             |
+| ✅ Why Used?             | Baseline approach           | Final approach for better RAG    |
+
+Implemented using `RecursiveCharacterTextSplitter` and later `SemanticChunker` from LangChain.
 
 ---
 
-## 📦 Requirements
+## 📦 Docker Volume for Persistent Weaviate
 
-Install all via:
+Used Docker volumes to persist Weaviate's vector store data.
 
 ```bash
-pip install -r requirements.txt
+docker run -d   -p 8080:8080   -v $(pwd)/weaviate_data:/var/lib/weaviate   semitechnologies/weaviate
+```
+
+**Why?** Ensures that embeddings don't need to be regenerated each run—crucial for experiments.
+
+---
+
+## 🧠 Embedding Models
+
+| Model              | Size     | Speed     | Performance | Comment                                |
+|--------------------|----------|-----------|-------------|----------------------------------------|
+| `all-MiniLM-L6-v2` | Small    | Fast      | Basic       | Used in baseline run                   |
+| `intfloat/e5-base-v2` | Medium | Moderate  | High        | Final choice: high accuracy + speed    |
+| `bge-large-en-v1.5`| Large    | Slow      | SOTA        | Skipped due to resource constraints    |
+
+✅ **Used**: `e5-base-v2` for its balance between accuracy and performance.
+
+---
+
+## 🦙 LLMs Used and Comparison
+
+| Model     | Tokens | Speed  | Quality | Comment                    |
+|-----------|--------|--------|---------|----------------------------|
+| Mistral   | 7B     | Fast   | Mid     | Good baseline performance  |
+| LLaMA 3   | 8B     | Fast   | High    | Used in final RAG pipeline |
+
+✅ **Used**: LLaMA 3 via Ollama for generation and Gemini 2 Flash for RAGAS scoring.
+
+---
+
+## 🤖 Chatbot Pipeline
+
+- Input question from Streamlit UI
+- Embed query and retrieve relevant context via Weaviate
+- Use retrieved text to form context-aware prompt
+- Use LLM to generate final response
+
+---
+
+## 📏 Evaluation Metrics (Custom)
+
+| Metric              | Type        | Description                                             |
+|---------------------|-------------|---------------------------------------------------------|
+| ROUGE-L             | Non-LLM     | Recall-based lexical overlap                           |
+| Cosine Similarity   | Non-LLM     | Semantic similarity of embeddings                      |
+| BERT F1             | LLM-based   | F1 score using pre-trained BERT embeddings             |
+| Final Score         | Weighted    | Composite score from all three metrics                 |
+
+**Weights Used:**
+```python
+METRIC_WEIGHTS = {
+    "rouge_score": 0,
+    "cosine_similarity": 0.4,
+    "bert_score_f1": 0.6
+}
 ```
 
 ---
 
+## 📊 Evaluation Comparison: First Run vs Final Run
 
-## 🤝 Contributions
+### 1. Custom Metric-Based Scores
 
-PRs and issues are welcome! Please open a discussion if you'd like to improve this project.
+| Metric           | Mistral (First Run) | LLaMA 3 (Second Run) |
+|------------------|---------------------|-----------------------|
+| ROUGE Score      | 0.3768              | 0.6758                |
+| Cosine Similarity| 0.6119              | 0.9166                |
+| BERT Score (F1)  | 0.6040              | 0.7443                |
+| Final Score      | 0.5723              | 0.8132                |
+| Grade            | F (Poor)            | B (Good)              |
+
+🎯 **Improvement Observed in every metric** after:
+- Switching to semantic chunking
+- Switching to `e5-base-v2`
+- Switching from Mistral to LLaMA 3
 
 ---
 
-## 📄 License
+### 2. RAGAS Evaluation (Final RAG)
 
-MIT License © 2025 Abhinav Tiwari
+| Metric             | Score    |
+|--------------------|----------|
+| Faithfulness       | 0.9194   |
+| Answer Relevancy   | 0.9432   |
+| Context Precision  | 0.7484   |
+| Context Recall     | 0.8970   |
+
+✅ Computed using Gemini 2.0 Flash for better judgment and reproducibility
+
+---
+
+## ✅ Summary of Enhancements
+
+| Area              | First Run              | Second Run (Final)     | Improvement                     |
+|-------------------|------------------------|-------------------------|----------------------------------|
+| Chunking          | Fixed size             | Semantic                | Better context + coherence       |
+| Embedding Model   | MiniLM                 | e5-base-v2              | More accurate + faster than BGE  |
+| LLM Used          | Mistral                | LLaMA 3 (Ollama)        | Higher quality, better context   |
+| Evaluation        | Custom only            | Custom + RAGAS          | More reliable + diverse metrics  |
+
+---
+
+## 💬 Final Thoughts
+
+This RAG chatbot system effectively leverages semantic chunking, smart embedding models, and lightweight LLMs to answer complex questions on historical data with improved accuracy and context. The use of **semantic chunking** and **LLaMA 3** showed significant gains in answer quality, as seen from the jump in evaluation scores.
+
+---
+
+**Made with ❤️ by Abhinav**
