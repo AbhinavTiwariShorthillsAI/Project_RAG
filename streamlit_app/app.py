@@ -7,7 +7,6 @@ from typing import List
 from sentence_transformers import SentenceTransformer, CrossEncoder
 import streamlit as st
 
-
 HISTORY_FILE = "data/conversation_history.json"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "llama3"
@@ -16,88 +15,49 @@ class WeaviateRetriever:
     """Retrieves relevant documents from Weaviate vector store based on semantic similarity."""
 
     def __init__(self, weaviate_url: str = "http://localhost:8080", embedding_model: str = "intfloat/e5-base-v2"):
-        """
-        Initializes the Weaviate client and embedding model.
-
-        Args:
-            weaviate_url (str): URL to the Weaviate instance.
-            embedding_model (str): HuggingFace sentence transformer model name.
-        """
-        self.client = weaviate.Client(url=weaviate_url)
-        self.embed_model = SentenceTransformer(embedding_model)
+        try:
+            self.client = weaviate.Client(url=weaviate_url)
+        except Exception as e:
+            raise ConnectionError(f"Failed to connect to Weaviate at {weaviate_url}: {e}")
+        try:
+            self.embed_model = SentenceTransformer(embedding_model)
+        except Exception as e:
+            raise RuntimeError(f"Failed to load embedding model '{embedding_model}': {e}")
 
     def retrieve(self, query: str, top_k: int = 5) -> List[str]:
-        """
-        Retrieves top_k text chunks most relevant to the query.
-
-        Args:
-            query (str): User's question.
-            top_k (int): Number of top results to retrieve.
-
-        Returns:
-            List[str]: List of relevant text chunks.
-        """
-        query_embedding = self.embed_model.encode([query])
-        query_embedding = np.array(query_embedding).astype(np.float32)
-        response = self.client.query.get("WorldWarChunk", ["text"])
-        response = response.with_near_vector({"vector": query_embedding[0]}).with_limit(top_k).do()
-        return [item["text"] for item in response["data"]["Get"]["WorldWarChunk"]]
+        try:
+            query_embedding = self.embed_model.encode([query])
+            query_embedding = np.array(query_embedding).astype(np.float32)
+            response = self.client.query.get("WorldWarChunk", ["text"])
+            response = response.with_near_vector({"vector": query_embedding[0]}).with_limit(top_k).do()
+            return [item["text"] for item in response["data"]["Get"]["WorldWarChunk"]]
+        except Exception as e:
+            return [f"Error retrieving from Weaviate: {e}"]
 
 class Reranker:
-    """Reranks retrieved chunks using a cross-encoder model."""
-
     def __init__(self, model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"):
-        """
-        Initializes the reranker model.
-
-        Args:
-            model_name (str): HuggingFace cross-encoder model name.
-        """
-        self.model = CrossEncoder(model_name)
+        try:
+            self.model = CrossEncoder(model_name)
+        except Exception as e:
+            raise RuntimeError(f"Failed to load reranker model '{model_name}': {e}")
 
     def rerank(self, query: str, chunks: List[str], top_k: int = 3) -> List[str]:
-        """ 
-        Scores and reranks the text chunks based on the input query.
-
-        Args:
-            query (str): User's question.
-            chunks (List[str]): List of text chunks.
-            top_k (int): Number of top chunks to return.
-
-        Returns:
-            List[str]: Reranked list of top_k text chunks.
-        """
-        if not chunks:
-            return []
-        pairs = [(query, chunk) for chunk in chunks]
-        scores = self.model.predict(pairs)
-        reranked = [chunk for _, chunk in sorted(zip(scores, chunks), reverse=True)]
-        return reranked[:top_k]
+        try:
+            if not chunks:
+                return []
+            pairs = [(query, chunk) for chunk in chunks]
+            scores = self.model.predict(pairs)
+            reranked = [chunk for _, chunk in sorted(zip(scores, chunks), reverse=True)]
+            return reranked[:top_k]
+        except Exception as e:
+            return [f"Error during reranking: {e}"]
 
 class LlamaQuerier:
-    """Handles querying the local LLaMA model via Ollama API."""
-
     def __init__(self, model: str = OLLAMA_MODEL, url: str = OLLAMA_URL):
-        """
-        Initializes the query interface to Ollama LLaMA model.
-
-        Args:
-            model (str): Name of the model registered in Ollama.
-            url (str): API endpoint URL for Ollama.
-        """
         self.model = model
         self.url = url
 
     def query(self, prompt: str) -> str:
-        """
-        Sends a prompt to the LLaMA model and retrieves a response.
-
-        Args:
-            prompt (str): Prompt text to send to the LLM.
-
-        Returns:
-            str: Model-generated answer.
-        """
         payload = {
             "model": self.model,
             "prompt": prompt,
@@ -111,8 +71,6 @@ class LlamaQuerier:
             return f"Error querying {self.model}: {e}"
 
 class QAApp:
-    """Streamlit-based front-end for RAG-style question answering."""
-
     def __init__(self):
         self.retriever = WeaviateRetriever()
         self.reranker = Reranker()
@@ -120,19 +78,22 @@ class QAApp:
         self.history = self.load_history()
 
     def load_history(self):
-        """Loads conversation history from the local history file."""
-        if os.path.exists(HISTORY_FILE):
-            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+        try:
+            if os.path.exists(HISTORY_FILE):
+                with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+        except Exception as e:
+            st.error(f"Failed to load history: {e}")
         return []
 
     def save_history(self):
-        """Saves the conversation history to disk."""
-        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-            json.dump(self.history, f, indent=2)
+        try:
+            with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+                json.dump(self.history, f, indent=2)
+        except Exception as e:
+            st.error(f"Failed to save history: {e}")
 
     def run(self):
-        """Launches the Streamlit UI and handles user interactions."""
         st.markdown("""
             <style>
                 textarea {
@@ -144,19 +105,17 @@ class QAApp:
                 font-family: 'Monolisa', monospace;
                 }
             </style>
-""", unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
         st.title(f"World War History Q&A (Powered by Local {OLLAMA_MODEL.capitalize()} 🦙)")
 
         if "history" not in st.session_state:
             st.session_state.history = self.history
 
+        if "question" not in st.session_state:
+            st.session_state.question = ""
+
         st.sidebar.title("📜 Conversation History")
-        if st.sidebar.button("🧹 Clear History"):
-            st.session_state.history = []
-            self.history = []
-            self.save_history()
-            st.experimental_rerun()
 
         if st.sidebar.button("⬇️ Download History"):
             history_str = json.dumps(st.session_state.history, indent=2)
@@ -164,11 +123,12 @@ class QAApp:
 
         question = st.text_area("Ask your question about World War History:", height=100)
         if question:
-            retrieved_chunks = self.retriever.retrieve(question, top_k=10)
-            reranked_context = self.reranker.rerank(question, retrieved_chunks, top_k=5)
-            full_context = "\n".join(reranked_context)
+            try:
+                retrieved_chunks = self.retriever.retrieve(question, top_k=10)
+                reranked_context = self.reranker.rerank(question, retrieved_chunks, top_k=5)
+                full_context = "\n".join(reranked_context)
 
-            prompt = f"""
+                prompt = f"""
 You are a factual Q&A assistant based on historical documents.
 
 Instructions:
@@ -184,7 +144,10 @@ Context:
 Question: {question}
 Answer:
 """
-            answer = self.llm.query(prompt)
+                answer = self.llm.query(prompt)
+            except Exception as e:
+                answer = f"Unexpected error: {e}"
+
             st.session_state.history.append({"question": question, "answer": answer})
             self.save_history()
 

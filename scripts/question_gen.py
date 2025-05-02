@@ -42,8 +42,15 @@ class LLaMAQuestionGenerator:
         Returns:
             str: The content of the text file.
         """
-        with open(path, "r", encoding="utf-8") as f:
-            return f.read()
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read()
+        except FileNotFoundError:
+            print(f"❌ File not found: {path}")
+            return ""
+        except Exception as e:
+            print(f"❌ Error loading text: {e}")
+            return ""
 
     def split_text_semantic(self, text: str, chunk_size: int = 800, chunk_overlap: int = 100) -> List[str]:
         """
@@ -57,13 +64,17 @@ class LLaMAQuestionGenerator:
         Returns:
             List[str]: List of text chunks.
         """
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            separators=["\n\n", ".", "!", "?", "\n", " "],
-            length_function=len
-        )
-        return splitter.split_text(text)
+        try:
+            splitter = RecursiveCharacterTextSplitter(
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap,
+                separators=["\n\n", ".", "!", "?", "\n", " "],
+                length_function=len
+            )
+            return splitter.split_text(text)
+        except Exception as e:
+            print(f"❌ Error splitting text: {e}")
+            return []
 
     def query_llama(self, prompt: str) -> str:
         """
@@ -84,6 +95,8 @@ class LLaMAQuestionGenerator:
             response = requests.post(self.url, json=payload)
             response.raise_for_status()
             return response.json().get("response", "").strip()
+        except requests.exceptions.ConnectionError:
+            return "Error: Unable to connect to Ollama API. Is it running?"
         except Exception as e:
             return f"Error: {e}"
 
@@ -112,27 +125,30 @@ Answer: <your answer>
 Historical text:
 {chunk}
 """
-            response_text = self.query_llama(prompt)
-            output_lines = response_text.strip().split("\n")
+            try:
+                response_text = self.query_llama(prompt)
+                output_lines = response_text.strip().split("\n")
 
-            current_question, current_answer = "", ""
-            for line in output_lines:
-                if "Question:" in line:
-                    if current_question and current_answer:
-                        questions.append(current_question)
-                        answers.append(current_answer)
-                        current_question, current_answer = "", ""
-                    current_question = line.split(":", 1)[1].strip()
-                elif "Answer:" in line:
-                    current_answer = line.split(":", 1)[1].strip()
+                current_question, current_answer = "", ""
+                for line in output_lines:
+                    if "Question:" in line:
+                        if current_question and current_answer:
+                            questions.append(current_question)
+                            answers.append(current_answer)
+                            current_question, current_answer = "", ""
+                        current_question = line.split(":", 1)[1].strip()
+                    elif "Answer:" in line:
+                        current_answer = line.split(":", 1)[1].strip()
 
-            if current_question and current_answer:
-                questions.append(current_question)
-                answers.append(current_answer)
+                if current_question and current_answer:
+                    questions.append(current_question)
+                    answers.append(current_answer)
 
-            percent = int(((i + 1) / total) * 100)
-            print(f"Progress: {percent}% ({i+1}/{total})", end='\r')
-            sleep(0.2)
+                percent = int(((i + 1) / total) * 100)
+                print(f"Progress: {percent}% ({i+1}/{total})", end='\r')
+                sleep(0.2)
+            except Exception as e:
+                print(f"\n❌ Error in chunk {i+1}: {e}")
 
         print("\n✅ Q&A generation complete!")
         return pd.DataFrame({"Question": questions, "Answer": answers})
@@ -145,13 +161,18 @@ Historical text:
             df (pd.DataFrame): DataFrame containing the questions and answers.
             output_path (str): Path to save the CSV file.
         """
-        df.to_csv(output_path, index=False)
-        print(f"✅ Saved {len(df)} Q&A pairs to {output_path}")
+        try:
+            df.to_csv(output_path, index=False)
+            print(f"✅ Saved {len(df)} Q&A pairs to {output_path}")
+        except Exception as e:
+            print(f"❌ Error saving CSV: {e}")
 
 
 if __name__ == "__main__":
     generator = LLaMAQuestionGenerator()
     raw_text = generator.load_text("data/modern_history_combined.txt")
-    chunks = generator.split_text_semantic(raw_text)
-    qa_df = generator.generate_qa_pairs(chunks)
-    generator.save_to_csv(qa_df, "data/qa_dataset_1000_part2.csv")
+    if raw_text:
+        chunks = generator.split_text_semantic(raw_text)
+        if chunks:
+            qa_df = generator.generate_qa_pairs(chunks)
+            generator.save_to_csv(qa_df, "data/qa_dataset_1000_part2.csv")

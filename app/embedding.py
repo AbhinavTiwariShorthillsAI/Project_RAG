@@ -26,8 +26,17 @@ class ChunkUploader:
         """
         self.text_file = text_file
         self.class_name = class_name
-        self.embed_model = SentenceTransformer(embedding_model_name)
-        self.client = weaviate.Client(url=weaviate_url)
+        try:
+            self.embed_model = SentenceTransformer(embedding_model_name)
+        except Exception as e:
+            print(f"Error loading embedding model {embedding_model_name}: {e}")
+            raise
+
+        try:
+            self.client = weaviate.Client(url=weaviate_url)
+        except Exception as e:
+            print(f"Error connecting to Weaviate instance at {weaviate_url}: {e}")
+            raise
 
     def load_text(self) -> str:
         """
@@ -36,8 +45,12 @@ class ChunkUploader:
         Returns:
             str: The raw text from the file.
         """
-        with open(self.text_file, "r", encoding="utf-8") as f:
-            return f.read()
+        try:
+            with open(self.text_file, "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception as e:
+            print(f"Error reading file {self.text_file}: {e}")
+            raise
 
     def split_text_semantic(self, text: str, chunk_size: int = 800, chunk_overlap: int = 100) -> List[str]:
         """
@@ -51,30 +64,46 @@ class ChunkUploader:
         Returns:
             List[str]: List of text chunks.
         """
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            separators=["\n\n", ".", "!", "?", "\n", " "],
-            length_function=len
-        )
-        return splitter.split_text(text)
+        try:
+            # Ensure chunk_overlap is always smaller than chunk_size
+            valid_overlap = min(chunk_overlap, chunk_size - 1)
+
+            splitter = RecursiveCharacterTextSplitter(
+                chunk_size=chunk_size,
+                chunk_overlap=valid_overlap,
+                separators=["\n\n", ".", "!", "?", "\n", " "],
+                length_function=len
+            )
+
+            chunks = splitter.split_text(text)
+
+            # Fallback: if splitter fails to produce any chunk (e.g., empty string), return raw text
+            return chunks if chunks else [text]
+
+        except Exception as e:
+            print(f"Error splitting text into chunks: {e}")
+            raise
 
     def create_weaviate_schema(self):
         """
         Clears existing schema and sets up a new Weaviate class with manual vectorization.
         """
-        self.client.schema.delete_all()
-        class_obj = {
-            "class": self.class_name,
-            "vectorizer": "none",
-            "properties": [
-                {
-                    "name": "text",
-                    "dataType": ["text"]
-                }
-            ]
-        }
-        self.client.schema.create_class(class_obj)
+        try:
+            self.client.schema.delete_all()
+            class_obj = {
+                "class": self.class_name,
+                "vectorizer": "none",
+                "properties": [
+                    {
+                        "name": "text",
+                        "dataType": ["text"]
+                    }
+                ]
+            }
+            self.client.schema.create_class(class_obj)
+        except Exception as e:
+            print(f"Error creating Weaviate schema: {e}")
+            raise
 
     def insert_chunks(self, chunks: List[str]):
         """
@@ -83,15 +112,19 @@ class ChunkUploader:
         Args:
             chunks (List[str]): List of preprocessed text chunks.
         """
-        embeddings = self.embed_model.encode(chunks, show_progress_bar=True)
-        embeddings = np.array(embeddings).astype(np.float32)
+        try:
+            embeddings = self.embed_model.encode(chunks, show_progress_bar=True)
+            embeddings = np.array(embeddings).astype(np.float32)
 
-        for chunk, embedding in zip(chunks, embeddings):
-            self.client.data_object.create(
-                data_object={"text": chunk},
-                class_name=self.class_name,
-                vector=embedding.tolist()
-            )
+            for chunk, embedding in zip(chunks, embeddings):
+                self.client.data_object.create(
+                    data_object={"text": chunk},
+                    class_name=self.class_name,
+                    vector=embedding.tolist()
+                )
+        except Exception as e:
+            print(f"Error inserting chunks into Weaviate: {e}")
+            raise
 
     def run(self):
         """
@@ -101,17 +134,24 @@ class ChunkUploader:
         - Creates schema in Weaviate
         - Inserts data and embeddings into the vector store
         """
-        print("📄 Reading and processing text file...")
-        text = self.load_text()
-        chunks = self.split_text_semantic(text)
+        try:
+            print("📄 Reading and processing text file...")
+            text = self.load_text()
+            chunks = self.split_text_semantic(text)
 
-        print("🧱 Setting up Weaviate schema...")
-        self.create_weaviate_schema()
+            print("🧱 Setting up Weaviate schema...")
+            self.create_weaviate_schema()
 
-        print("📤 Uploading chunks to Weaviate...")
-        self.insert_chunks(chunks)
-        print("✅ All chunks inserted into Weaviate!")
+            print("📤 Uploading chunks to Weaviate...")
+            self.insert_chunks(chunks)
+            print("✅ All chunks inserted into Weaviate!")
+        except Exception as e:
+            print(f"Error during the processing pipeline: {e}")
+            raise
 
 if __name__ == "__main__":
-    uploader = ChunkUploader("/home/shtlp_0012/codes/RAG/modern_history_combined.txt")
-    uploader.run()
+    try:
+        uploader = ChunkUploader("/home/shtlp_0012/codes/RAG/modern_history_combined.txt")
+        uploader.run()
+    except Exception as e:
+        print(f"Error during script execution: {e}")
