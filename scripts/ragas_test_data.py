@@ -2,8 +2,8 @@ import csv
 import json
 
 # === CONFIG ===
-INPUT_CSV_FILE = "data/evaluation_scores_split.csv"  # Path to your CSV
-OUTPUT_JSON_FILE = "data/evaluation_summary.json"    # Output summary JSON
+INPUT_CSV_FILE = "data/evaluation_scores_split_mistral.csv"  # Path to your CSV
+OUTPUT_JSON_FILE = "data/evaluation_summary_ragas_mistral.json"    # Output summary JSON
 
 # === Initialize ===
 scores = {

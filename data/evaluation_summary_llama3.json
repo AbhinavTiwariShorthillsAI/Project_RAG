@@ -1,7 +1,10 @@
 {
-    "rouge_score": 0.6757762325095538,
-    "cosine_similarity": 0.9165642023449991,
-    "bert_score_f1": 0.7442509021640309,
-    "final_score": 0.8131762222364182,
-    "grade": "B (Good)"
+    "rouge_score": 0.6678329390784582,
+    "cosine_similarity": 0.915326572262443,
+    "bert_score_f1": 0.7409186246809545,
+    "bleu": 0.23273371636824958,
+    "meteor": 0.45547718627149564,
+    "levenshtein": 0.6842659342524079,
+    "final_score": 0.7342125297160925,
+    "grade": "C (Average)"
 }

@@ -9,14 +9,14 @@ import os
 # === CONFIG ===
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-EXCEL_PATH = "data/qa_with_predictions_part2.xlsx"
-OUTPUT_XLSX = "data/evaluated_results_partial.xlsx"
-OUTPUT_JSON = "data/rag_evaluation_scores_partial.json"
-API_KEY = GEMINI_API_KEY  # <-- Replace this
+EXCEL_PATH = "data/qa_with_predictions.xlsx"
+OUTPUT_XLSX = "data/evaluated_results_partial_mistral.xlsx"
+OUTPUT_JSON = "data/rag_evaluation_scores_partial_mistral.json"
+API_KEY = GEMINI_API_KEY 
 
 # Index range for partial evaluation
-start_index = 977  # <-- CHANGE THIS
-end_index = 985    # <-- CHANGE THIS
+start_index = 649  # <-- CHANGE THIS
+end_index = start_index + 15
 
 # === Setup Gemini ===
 genai.configure(api_key=API_KEY)
