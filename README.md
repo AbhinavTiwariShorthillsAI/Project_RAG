@@ -146,15 +146,15 @@ The transition from the first run (Mistral) to the second run (LLaMA 3) demonstr
 
 ![Custom Metrics Comparison](assets/custom_metrics.png)
 
-| Metric              | Mistral (First Run) | LLaMA 3 (Second Run) | Improvement (%) |
-|---------------------|---------------------|-----------------------|-----------------|
-| ROUGE Score         | 0.3768              | 0.6678                | 77.2%           |
-| Cosine Similarity   | 0.8669              | 0.9153                | 5.6%            |
-| BERT Score (F1)     | 0.6040              | 0.7409                | 22.7%           |
-| BLEU                | 0.1378              | 0.2327                | 68.9%           |
-| METEOR              | 0.3393              | 0.4555                | 34.2%           |
-| Levenshtein         | 0.4030              | 0.6843                | 69.8%           |
-| Final Score         | 0.6021              | 0.7342                | 21.9%           |
+| Metric            | Mistral (First Run) | LLaMA 3 (Second Run) | Improvement (%) |
+| ----------------- | ------------------- | -------------------- | --------------- |
+| ROUGE Score       | 0.3768              | 0.6678               | 77.2%           |
+| Cosine Similarity | 0.8669              | 0.9153               | 5.6%            |
+| BERT Score (F1)   | 0.6040              | 0.7409               | 22.7%           |
+| BLEU              | 0.1378              | 0.2327               | 68.9%           |
+| METEOR            | 0.3393              | 0.4555               | 34.2%           |
+| Levenshtein       | 0.4030              | 0.6843               | 69.8%           |
+| **Final Score**   | **0.6021**          | **0.7342**           | **21.9%**       |
 
 **Insights**:
 - **ROUGE-L**: The largest improvement (+77.2%) is evident in the significantly taller LLaMA 3 bar, indicating enhanced lexical overlap between generated and reference text.
