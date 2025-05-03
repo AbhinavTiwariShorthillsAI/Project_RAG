@@ -4,6 +4,7 @@ import os
 import sys
 from unittest.mock import patch, mock_open
 from bs4 import BeautifulSoup
+from typing import List, Tuple, Optional, Set, Any
 
 # ------------------- Logging Configuration -------------------
 
@@ -33,11 +34,19 @@ from scripts.scraper import scrape_wikipedia_page, extract_valid_links, auto_cra
 # ------------------- scrape_wikipedia_page -------------------
 
 @patch("scripts.scraper.requests.get")
-def test_scrape_success(mock_get):
+def test_scrape_success(mock_get: Any) -> None:
     """
     Test case for successful scraping of a Wikipedia page.
+    
     Mocks a successful HTTP GET request and checks that the
     content is correctly extracted.
+    
+    Args:
+        mock_get: Mocked requests.get function
+        
+    Asserts:
+        1. The text extracted contains expected content
+        2. The soup object is an instance of BeautifulSoup
     """
     # Mocking the HTML response for the Wikipedia page
     html = '''
@@ -61,10 +70,18 @@ def test_scrape_success(mock_get):
 
 
 @patch("scripts.scraper.requests.get")
-def test_scrape_network_error(mock_get):
+def test_scrape_network_error(mock_get: Any) -> None:
     """
     Test case for handling network errors during scraping.
-    Mocks a network error (e.g., timeout, connection error).
+    
+    Mocks a network error (e.g., timeout, connection error) and verifies
+    that the function handles it gracefully.
+    
+    Args:
+        mock_get: Mocked requests.get function
+        
+    Asserts:
+        Both return values are None when a network error occurs
     """
     # Simulating a network error by raising an exception
     mock_get.side_effect = Exception("Network error")
@@ -82,10 +99,18 @@ def test_scrape_network_error(mock_get):
 
 
 @patch("scripts.scraper.requests.get")
-def test_scrape_invalid_structure(mock_get):
+def test_scrape_invalid_structure(mock_get: Any) -> None:
     """
     Test case for handling invalid HTML structure during scraping.
-    Mocks a situation where the page structure does not match expectations.
+    
+    Mocks a situation where the page structure does not match expectations
+    and verifies the function returns None values.
+    
+    Args:
+        mock_get: Mocked requests.get function
+        
+    Asserts:
+        Both return values are None when the HTML structure is invalid
     """
     # Mocking an invalid HTML structure response
     mock_get.return_value.status_code = 200
@@ -122,10 +147,17 @@ def test_scrape_invalid_structure(mock_get):
         []
     )
 ])
-def test_extract_valid_links(html, expected):
+def test_extract_valid_links(html: str, expected: List[str]) -> None:
     """
     Test case for the function `extract_valid_links`, which extracts valid
     internal Wikipedia links from a page's HTML content.
+    
+    Args:
+        html: HTML content to parse for links
+        expected: List of expected valid links to be extracted
+        
+    Asserts:
+        The set of extracted links matches the set of expected links
     """
     soup = BeautifulSoup(html, "html.parser")
     
@@ -146,10 +178,28 @@ def test_extract_valid_links(html, expected):
 @patch("scripts.scraper.extract_valid_links")
 @patch("scripts.scraper.open", new_callable=mock_open)
 @patch("scripts.scraper.time.sleep", return_value=None)
-def test_crawl_success(mock_sleep, mock_file, mock_links, mock_scrape):
+def test_crawl_success(
+    mock_sleep: Any, 
+    mock_file: Any, 
+    mock_links: Any, 
+    mock_scrape: Any
+) -> None:
     """
     Test case for successful crawling of Wikipedia pages and saving the result to a file.
-    Mocks scraping, link extraction, and file writing.
+    
+    Mocks scraping, link extraction, and file writing operations to test
+    the full crawling and saving workflow.
+    
+    Args:
+        mock_sleep: Mocked time.sleep function
+        mock_file: Mocked open function for file handling
+        mock_links: Mocked extract_valid_links function
+        mock_scrape: Mocked scrape_wikipedia_page function
+        
+    Asserts:
+        1. File writing was called
+        2. Scrape function was called once
+        3. Link extraction function was called once
     """
     soup = BeautifulSoup("<div></div>", "html.parser")
     mock_scrape.return_value = ("Sample Content", soup)  # Mocking a successful scrape
@@ -173,10 +223,24 @@ def test_crawl_success(mock_sleep, mock_file, mock_links, mock_scrape):
 @patch("scripts.scraper.scrape_wikipedia_page", return_value=(None, None))
 @patch("scripts.scraper.open", new_callable=mock_open)
 @patch("scripts.scraper.time.sleep", return_value=None)
-def test_crawl_with_error(mock_sleep, mock_file, mock_scrape):
+def test_crawl_with_error(
+    mock_sleep: Any, 
+    mock_file: Any, 
+    mock_scrape: Any
+) -> None:
     """
     Test case for handling errors during the crawling process.
-    Mocks a failed scrape scenario and ensures the file write operation is not called.
+    
+    Mocks a failed scrape scenario and ensures the file write operation
+    is not called when scraping fails.
+    
+    Args:
+        mock_sleep: Mocked time.sleep function
+        mock_file: Mocked open function for file handling
+        mock_scrape: Mocked scrape_wikipedia_page function that returns None values
+        
+    Asserts:
+        File write operation is not called when scraping fails
     """
     # Calling the function with a bad URL that fails to scrape
     auto_crawl_and_save_one_file(

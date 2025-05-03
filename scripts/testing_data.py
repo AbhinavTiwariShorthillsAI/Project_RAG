@@ -5,7 +5,7 @@ import numpy as np
 import csv
 from openpyxl import Workbook, load_workbook
 from sentence_transformers import SentenceTransformer
-from typing import Generator, Dict, List
+from typing import Generator, Dict, List, Optional, Any
 
 # Constants
 OLLAMA_URL = "http://localhost:11434/api/generate"
@@ -17,9 +17,19 @@ class RAGQuestionAnswering:
     """
     A class to perform retrieval-augmented generation (RAG) on a QA dataset,
     fetching context from Weaviate and generating answers using a local LLaMA model.
+    
+    Attributes:
+        client (weaviate.Client): Client connection to Weaviate vector database.
+        embed_model (SentenceTransformer): Model for creating text embeddings.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """
+        Initialize the RAG system with Weaviate client and embedding model.
+        
+        Raises:
+            Exception: If connection to Weaviate fails or embedding model cannot be loaded.
+        """
         try:
             self.client = weaviate.Client("http://localhost:8080")
         except Exception as e:
@@ -35,6 +45,16 @@ class RAGQuestionAnswering:
     def search_weaviate(self, query: str, top_k: int = 3) -> List[str]:
         """
         Retrieves top_k relevant text chunks from Weaviate for a given query.
+        
+        Args:
+            query (str): The question or search term to find relevant context for.
+            top_k (int, optional): Number of text chunks to retrieve. Defaults to 3.
+            
+        Returns:
+            List[str]: List of retrieved text chunks most relevant to the query.
+            
+        Note:
+            Returns empty list if retrieval fails.
         """
         try:
             query_embedding = self.embed_model.encode([query])
@@ -52,6 +72,12 @@ class RAGQuestionAnswering:
     def query_llama(self, prompt: str) -> str:
         """
         Sends a prompt to the local LLaMA model via Ollama API and returns the response.
+        
+        Args:
+            prompt (str): The formatted prompt to send to the LLM.
+            
+        Returns:
+            str: The generated response from LLaMA, or error message if query fails.
         """
         payload = {
             "model": OLLAMA_MODEL,
@@ -69,6 +95,15 @@ class RAGQuestionAnswering:
     def question_fetch(self, csv_file_path: str) -> Generator[Dict[str, str], None, None]:
         """
         Yields question-answer pairs from a CSV file with two columns: question and answer.
+        
+        Args:
+            csv_file_path (str): Path to the CSV file containing QA pairs.
+            
+        Yields:
+            Dict[str, str]: Dictionary with 'question' and 'answer' keys.
+            
+        Raises:
+            Exception: If CSV file cannot be read or processed.
         """
         try:
             with open(csv_file_path, newline='', encoding='utf-8') as csvfile:
@@ -81,9 +116,19 @@ class RAGQuestionAnswering:
             print(f"Error reading CSV file {csv_file_path}: {e}")
             raise
 
-    def run(self):
+    def run(self) -> None:
         """
         Executes the full RAG pipeline: fetch context, generate answer, write to Excel.
+        
+        Process:
+            1. Opens or creates Excel output file
+            2. Reads QA pairs from CSV file
+            3. For each question, retrieves relevant context from Weaviate
+            4. Generates answer using LLaMA model with the retrieved context
+            5. Writes results to Excel file
+            
+        Raises:
+            Exception: If file operations fail or other processing errors occur.
         """
         print(f"\n🤖 World War History Q&A (Powered by {OLLAMA_MODEL})")
 

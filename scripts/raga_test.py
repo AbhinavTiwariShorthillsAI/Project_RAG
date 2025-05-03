@@ -5,6 +5,7 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 import re
 import os
+from typing import List, Tuple, Dict, Optional, Union, Any
 
 # === CONFIG ===
 load_dotenv()
@@ -26,8 +27,19 @@ model = genai.GenerativeModel("models/gemini-2.0-flash")
 df = pd.read_excel(EXCEL_PATH)
 df_slice = df.iloc[start_index:end_index].copy()
 
-# === Prompt Template ===
 def build_prompt(question: str, answer: str, predicted_answer: str, context: str) -> str:
+    """
+    Build an evaluation prompt for the Gemini model to evaluate RAG performance.
+    
+    Args:
+        question (str): The original question.
+        answer (str): The ground truth answer.
+        predicted_answer (str): The RAG system's predicted answer.
+        context (str): The context retrieved and used for generating the answer.
+        
+    Returns:
+        str: A formatted prompt for the Gemini model to evaluate the RAG system.
+    """
     return f"""
 Evaluate the following Q&A pair using the provided context and return a list of 4 scores only, no explanation.
 
@@ -45,15 +57,24 @@ Predicted Answer: {predicted_answer}
 Context: {context}
 """
 
-# === Score Extraction ===
-def extract_scores(response_text: str) -> list[float]:
+def extract_scores(response_text: str) -> List[Optional[float]]:
+    """
+    Extract the four evaluation scores from the Gemini model's response.
+    
+    Args:
+        response_text (str): The raw text response from the Gemini model.
+        
+    Returns:
+        List[Optional[float]]: A list of 4 floats representing the evaluation scores,
+                              or a list with None values if extraction fails.
+    """
     match = re.search(r"\[\s*(\d\.\d+)\s*,\s*(\d\.\d+)\s*,\s*(\d\.\d+)\s*,\s*(\d\.\d+)\s*\]", response_text)
     if match:
         return [float(match.group(i)) for i in range(1, 5)]
     return [None, None, None, None]
 
 # === Evaluation Loop ===
-all_scores = []
+all_scores: List[List[Optional[float]]] = []
 for idx, row in tqdm(df_slice.iterrows(), total=len(df_slice), desc="Evaluating"):
     q, a, p, c = row["Question"], row["Answer"], row["predicted_answer"], row["context"]
     prompt = build_prompt(q, a, p, c)

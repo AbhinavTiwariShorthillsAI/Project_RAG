@@ -3,7 +3,7 @@ import json
 import numpy as np
 import requests
 import weaviate
-from typing import List
+from typing import List, Dict, Any, Optional
 from sentence_transformers import SentenceTransformer, CrossEncoder
 import streamlit as st
 
@@ -12,9 +12,26 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "llama3"
 
 class WeaviateRetriever:
-    """Retrieves relevant documents from Weaviate vector store based on semantic similarity."""
+    """
+    Retrieves relevant documents from Weaviate vector store based on semantic similarity.
+    
+    Attributes:
+        client (weaviate.Client): Weaviate client for database operations.
+        embed_model (SentenceTransformer): Model for creating text embeddings.
+    """
 
-    def __init__(self, weaviate_url: str = "http://localhost:8080", embedding_model: str = "intfloat/e5-base-v2"):
+    def __init__(self, weaviate_url: str = "http://localhost:8080", embedding_model: str = "intfloat/e5-base-v2") -> None:
+        """
+        Initialize the retriever with Weaviate connection and embedding model.
+        
+        Args:
+            weaviate_url (str, optional): URL to the Weaviate instance. Defaults to "http://localhost:8080".
+            embedding_model (str, optional): Name of the SentenceTransformer model. Defaults to "intfloat/e5-base-v2".
+            
+        Raises:
+            ConnectionError: If connection to Weaviate fails.
+            RuntimeError: If loading the embedding model fails.
+        """
         try:
             self.client = weaviate.Client(url=weaviate_url)
         except Exception as e:
@@ -25,6 +42,19 @@ class WeaviateRetriever:
             raise RuntimeError(f"Failed to load embedding model '{embedding_model}': {e}")
 
     def retrieve(self, query: str, top_k: int = 5) -> List[str]:
+        """
+        Retrieve the most semantically similar text chunks for a given query.
+        
+        Args:
+            query (str): The search query or question.
+            top_k (int, optional): Number of chunks to retrieve. Defaults to 5.
+            
+        Returns:
+            List[str]: List of text chunks retrieved from Weaviate.
+            
+        Note:
+            Returns error message as a single list item if retrieval fails.
+        """
         try:
             query_embedding = self.embed_model.encode([query])
             query_embedding = np.array(query_embedding).astype(np.float32)
@@ -35,13 +65,44 @@ class WeaviateRetriever:
             return [f"Error retrieving from Weaviate: {e}"]
 
 class Reranker:
-    def __init__(self, model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"):
+    """
+    Reranks retrieved documents using a cross-encoder model to improve relevance.
+    
+    Attributes:
+        model (CrossEncoder): Cross-encoder model for document reranking.
+    """
+    
+    def __init__(self, model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2") -> None:
+        """
+        Initialize the reranker with a cross-encoder model.
+        
+        Args:
+            model_name (str, optional): Name of the cross-encoder model. 
+                Defaults to "cross-encoder/ms-marco-MiniLM-L-6-v2".
+                
+        Raises:
+            RuntimeError: If loading the reranker model fails.
+        """
         try:
             self.model = CrossEncoder(model_name)
         except Exception as e:
             raise RuntimeError(f"Failed to load reranker model '{model_name}': {e}")
 
     def rerank(self, query: str, chunks: List[str], top_k: int = 3) -> List[str]:
+        """
+        Reranks text chunks based on their relevance to the query.
+        
+        Args:
+            query (str): The search query or question.
+            chunks (List[str]): List of text chunks to rerank.
+            top_k (int, optional): Number of top chunks to return. Defaults to 3.
+            
+        Returns:
+            List[str]: Reranked list of text chunks, limited to top_k.
+            
+        Note:
+            Returns empty list if chunks is empty or error message as a single list item if reranking fails.
+        """
         try:
             if not chunks:
                 return []
@@ -53,11 +114,35 @@ class Reranker:
             return [f"Error during reranking: {e}"]
 
 class LlamaQuerier:
-    def __init__(self, model: str = OLLAMA_MODEL, url: str = OLLAMA_URL):
+    """
+    Sends queries to a local LLaMA model via Ollama API.
+    
+    Attributes:
+        model (str): Name of the LLaMA model.
+        url (str): URL endpoint for the Ollama API.
+    """
+    
+    def __init__(self, model: str = OLLAMA_MODEL, url: str = OLLAMA_URL) -> None:
+        """
+        Initialize the LLaMA querier with model name and API endpoint.
+        
+        Args:
+            model (str, optional): Name of the LLaMA model. Defaults to OLLAMA_MODEL.
+            url (str, optional): Ollama API endpoint. Defaults to OLLAMA_URL.
+        """
         self.model = model
         self.url = url
 
     def query(self, prompt: str) -> str:
+        """
+        Send a prompt to the LLaMA model via Ollama API and get the response.
+        
+        Args:
+            prompt (str): The formatted prompt to send to the model.
+            
+        Returns:
+            str: The model's response or error message if the query fails.
+        """
         payload = {
             "model": self.model,
             "prompt": prompt,
@@ -71,13 +156,35 @@ class LlamaQuerier:
             return f"Error querying {self.model}: {e}"
 
 class QAApp:
-    def __init__(self):
+    """
+    Streamlit application for question answering with conversation history.
+    
+    Attributes:
+        retriever (WeaviateRetriever): For retrieving relevant documents from Weaviate.
+        reranker (Reranker): For reranking retrieved documents by relevance.
+        llm (LlamaQuerier): For querying the LLaMA model.
+        history (List[Dict[str, str]]): Conversation history with questions and answers.
+    """
+    
+    def __init__(self) -> None:
+        """
+        Initialize the QA application with retriever, reranker, LLM, and conversation history.
+        """
         self.retriever = WeaviateRetriever()
         self.reranker = Reranker()
         self.llm = LlamaQuerier()
         self.history = self.load_history()
 
-    def load_history(self):
+    def load_history(self) -> List[Dict[str, str]]:
+        """
+        Load conversation history from a JSON file.
+        
+        Returns:
+            List[Dict[str, str]]: List of conversation entries, each with 'question' and 'answer' keys.
+            
+        Note:
+            Returns empty list if file doesn't exist or loading fails.
+        """
         try:
             if os.path.exists(HISTORY_FILE):
                 with open(HISTORY_FILE, "r", encoding="utf-8") as f:
@@ -86,14 +193,30 @@ class QAApp:
             st.error(f"Failed to load history: {e}")
         return []
 
-    def save_history(self):
+    def save_history(self) -> None:
+        """
+        Save the current conversation history to a JSON file.
+        
+        Note:
+            Displays error in Streamlit UI if saving fails.
+        """
         try:
             with open(HISTORY_FILE, "w", encoding="utf-8") as f:
                 json.dump(self.history, f, indent=2)
         except Exception as e:
             st.error(f"Failed to save history: {e}")
 
-    def run(self):
+    def run(self) -> None:
+        """
+        Run the Streamlit application with the RAG Q&A interface.
+        
+        Builds and displays:
+            - Custom CSS styling
+            - Application title
+            - Question input area
+            - Answer display
+            - Conversation history sidebar
+        """
         st.markdown("""
             <style>
                 textarea {
