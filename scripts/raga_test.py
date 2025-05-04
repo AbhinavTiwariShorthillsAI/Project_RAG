@@ -5,14 +5,34 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 import re
 import os
+import logging
 from typing import List, Tuple, Dict, Optional, Union, Any
+
+# Set up logging
+current_dir = os.path.dirname(os.path.abspath(__file__))
+output_dir = os.path.join(current_dir, 'output')
+os.makedirs(output_dir, exist_ok=True)
+log_file = os.path.join(output_dir, 'raga_test.log')
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler(log_file),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Get the project root directory
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # === CONFIG ===
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-EXCEL_PATH = "data/qa_with_predictions.xlsx"
-OUTPUT_XLSX = "data/evaluated_results_partial_mistral.xlsx"
-OUTPUT_JSON = "data/rag_evaluation_scores_partial_mistral.json"
+EXCEL_PATH = os.path.join(project_root, "data", "processed", "qa_with_predictions.xlsx")
+OUTPUT_XLSX = os.path.join(project_root, "data", "evaluation", "evaluated_results_partial_mistral.xlsx")
+OUTPUT_JSON = os.path.join(project_root, "data", "evaluation", "rag_evaluation_scores_partial_mistral.json")
 API_KEY = GEMINI_API_KEY 
 
 # Index range for partial evaluation
@@ -82,10 +102,10 @@ for idx, row in tqdm(df_slice.iterrows(), total=len(df_slice), desc="Evaluating"
         response = model.generate_content(prompt)
         scores = extract_scores(response.text)
     except Exception as e:
-        print(f"Error on row {idx + start_index}: {e}")
+        logger.error(f"Error on row {idx + start_index}: {e}")
         scores = [None, None, None, None]
 
-    print(f"Row {idx + start_index} scores: {scores}")
+    logger.info(f"Row {idx + start_index} scores: {scores}")
     all_scores.append(scores)
 
 # === Add Scores to Slice ===
@@ -135,9 +155,9 @@ if filtered_scores:
     with open(OUTPUT_JSON, "w") as f:
         json.dump(final_avg, f, indent=2)
 
-    print("\n✅ Updated RAG Evaluation Scores:")
-    print(json.dumps(final_avg, indent=2))
+    logger.info("\n✅ Updated RAG Evaluation Scores:")
+    logger.info(json.dumps(final_avg, indent=2))
 else:
-    print("⚠️ No valid scores to average.")
+    logger.warning("⚠️ No valid scores to average.")
 
 

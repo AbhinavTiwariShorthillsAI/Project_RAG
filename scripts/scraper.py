@@ -2,7 +2,25 @@ import requests
 from bs4 import BeautifulSoup
 import time
 import random
+import os
+import logging
 from typing import List
+
+# Set up logging
+current_dir = os.path.dirname(os.path.abspath(__file__))
+output_dir = os.path.join(current_dir, 'output')
+os.makedirs(output_dir, exist_ok=True)
+log_file = os.path.join(output_dir, 'scraper.log')
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler(log_file),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 BASE_URL = "https://en.wikipedia.org"
 
@@ -35,11 +53,11 @@ def scrape_wikipedia_page(url: str) -> tuple[str, BeautifulSoup] | tuple[None, N
         return page_text, soup
     except requests.exceptions.RequestException as e:
         # Handle network errors, invalid URL, etc.
-        print(f"Error requesting {url}: {e}")
+        logger.error(f"Error requesting {url}: {e}")
         return None, None
     except Exception as e:
         # Handle other unforeseen exceptions
-        print(f"Error scraping {url}: {e}")
+        logger.error(f"Error scraping {url}: {e}")
         return None, None
 
 def extract_valid_links(soup: BeautifulSoup) -> List[str]:
@@ -62,7 +80,7 @@ def extract_valid_links(soup: BeautifulSoup) -> List[str]:
         return list(set(links))
     except Exception as e:
         # Handle any issues while extracting links
-        print(f"Error extracting links: {e}")
+        logger.error(f"Error extracting links: {e}")
         return []
 
 def auto_crawl_and_save_one_file(
@@ -102,9 +120,9 @@ def auto_crawl_and_save_one_file(
                 to_visit.extend(new_links)
             except Exception as e:
                 # Handle any issues while processing the page content
-                print(f"Error processing content from {url}: {e}")
+                logger.error(f"Error processing content from {url}: {e}")
         else:
-            print(f"Skipping {url} due to errors while scraping.")
+            logger.warning(f"Skipping {url} due to errors while scraping.")
 
         time.sleep(random.uniform(1, 3))  # Randomized delay to avoid being blocked
 
@@ -112,12 +130,12 @@ def auto_crawl_and_save_one_file(
         if full_text.strip():  # Only write if full_text is not empty or just whitespace
             with open(output_file, "w", encoding="utf-8") as f:
                 f.write(full_text)
-            print(f"✅ Saved all combined text into {output_file} with {len(visited)} pages.")
+            logger.info(f"✅ Saved all combined text into {output_file} with {len(visited)} pages.")
         else:
-            print(f"❌ No pages were saved due to errors.")
+            logger.warning(f"❌ No pages were saved due to errors.")
     except Exception as e:
     # Handle any errors while writing to the file
-        print(f"Error saving the file {output_file}: {e}")
+        logger.error(f"Error saving the file {output_file}: {e}")
 
 
 if __name__ == "__main__":

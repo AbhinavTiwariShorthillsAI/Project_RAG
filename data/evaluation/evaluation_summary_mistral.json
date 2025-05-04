@@ -1,0 +1,10 @@
+{
+    "rouge_score": 0.8,
+    "cosine_similarity": 0.9,
+    "bert_score_f1": 0.85,
+    "bleu": 0.7,
+    "meteor": 0.75,
+    "levenshtein": 0.65,
+    "final_score": 0.85,
+    "grade": "B (Good)"
+}

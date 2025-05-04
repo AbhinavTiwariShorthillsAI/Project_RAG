@@ -1,6 +1,24 @@
 import csv
 import json
+import os
+import logging
 from typing import Dict, List, Any
+
+# Set up logging
+current_dir = os.path.dirname(os.path.abspath(__file__))
+output_dir = os.path.join(current_dir, 'output')
+os.makedirs(output_dir, exist_ok=True)
+log_file = os.path.join(output_dir, 'ragas_test_data.log')
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler(log_file),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 def read_scores_from_csv(csv_file: str) -> Dict[str, List[float]]:
     """
@@ -34,7 +52,7 @@ def read_scores_from_csv(csv_file: str) -> Dict[str, List[float]]:
                 scores["context_precision"].append(float(row["context_precision"]))
                 scores["context_recall"].append(float(row["context_recall"]))
             except ValueError as e:
-                print(f"Skipping row due to error: {e} | Row: {row}")
+                logger.warning(f"Skipping row due to error: {e} | Row: {row}")
     
     return scores
 
@@ -74,8 +92,8 @@ def save_summary_to_json(summary: Dict[str, float], output_file: str) -> None:
     """
     with open(output_file, "w") as jsonfile:
         json.dump(summary, jsonfile, indent=2)
-    print(f"✅ Evaluation summary saved to: {output_file}")
-    print(json.dumps(summary, indent=2))
+    logger.info(f"✅ Evaluation summary saved to: {output_file}")
+    logger.info(json.dumps(summary, indent=2))
 
 def main():
     """
@@ -86,9 +104,12 @@ def main():
     2. Computes averages for each metric
     3. Saves the summary to a JSON file
     """
+    # Get the project root directory
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
     # Configuration
-    INPUT_CSV_FILE = "data/evaluation_scores_split_mistral.csv"
-    OUTPUT_JSON_FILE = "data/evaluation_summary_ragas_mistral.json"
+    INPUT_CSV_FILE = os.path.join(project_root, "data", "evaluation", "evaluation_scores_split_mistral.csv")
+    OUTPUT_JSON_FILE = os.path.join(project_root, "data", "evaluation", "evaluation_summary_ragas_mistral.json")
     
     # Process scores
     scores = read_scores_from_csv(INPUT_CSV_FILE)

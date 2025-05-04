@@ -1,8 +1,26 @@
 import numpy as np
 import weaviate
+import logging
+import os
 from typing import List, Optional
 from sentence_transformers import SentenceTransformer
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+# Set up logging
+current_dir = os.path.dirname(os.path.abspath(__file__))
+output_dir = os.path.join(current_dir, 'output')
+os.makedirs(output_dir, exist_ok=True)
+log_file = os.path.join(output_dir, 'embedding.log')
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_file, mode='a'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 class ChunkUploader:
     """
@@ -43,13 +61,13 @@ class ChunkUploader:
         try:
             self.embed_model = SentenceTransformer(embedding_model_name)
         except Exception as e:
-            print(f"Error loading embedding model {embedding_model_name}: {e}")
+            logger.error(f"Error loading embedding model {embedding_model_name}: {e}")
             raise
 
         try:
             self.client = weaviate.Client(url=weaviate_url)
         except Exception as e:
-            print(f"Error connecting to Weaviate instance at {weaviate_url}: {e}")
+            logger.error(f"Error connecting to Weaviate instance at {weaviate_url}: {e}")
             raise
 
     def load_text(self) -> str:
@@ -66,7 +84,7 @@ class ChunkUploader:
             with open(self.text_file, "r", encoding="utf-8") as f:
                 return f.read()
         except Exception as e:
-            print(f"Error reading file {self.text_file}: {e}")
+            logger.error(f"Error reading file {self.text_file}: {e}")
             raise
 
     def split_text_semantic(self, text: str, chunk_size: int = 800, chunk_overlap: int = 100) -> List[str]:
@@ -101,7 +119,7 @@ class ChunkUploader:
             return chunks if chunks else [text]
 
         except Exception as e:
-            print(f"Error splitting text into chunks: {e}")
+            logger.error(f"Error splitting text into chunks: {e}")
             raise
 
     def create_weaviate_schema(self) -> None:
@@ -128,7 +146,7 @@ class ChunkUploader:
             }
             self.client.schema.create_class(class_obj)
         except Exception as e:
-            print(f"Error creating Weaviate schema: {e}")
+            logger.error(f"Error creating Weaviate schema: {e}")
             raise
 
     def insert_chunks(self, chunks: List[str]) -> None:
@@ -152,7 +170,7 @@ class ChunkUploader:
                     vector=embedding.tolist()
                 )
         except Exception as e:
-            print(f"Error inserting chunks into Weaviate: {e}")
+            logger.error(f"Error inserting chunks into Weaviate: {e}")
             raise
 
     def run(self) -> None:
@@ -169,23 +187,25 @@ class ChunkUploader:
             Exception: If any step in the processing pipeline fails.
         """
         try:
-            print("📄 Reading and processing text file...")
+            logger.info("📄 Reading and processing text file...")
             text = self.load_text()
             chunks = self.split_text_semantic(text)
 
-            print("🧱 Setting up Weaviate schema...")
+            logger.info("🧱 Setting up Weaviate schema...")
             self.create_weaviate_schema()
 
-            print("📤 Uploading chunks to Weaviate...")
+            logger.info("📤 Uploading chunks to Weaviate...")
             self.insert_chunks(chunks)
-            print("✅ All chunks inserted into Weaviate!")
+            logger.info("✅ All chunks inserted into Weaviate!")
         except Exception as e:
-            print(f"Error during the processing pipeline: {e}")
+            logger.error(f"Error during the processing pipeline: {e}")
             raise
 
 if __name__ == "__main__":
     try:
-        uploader = ChunkUploader("/home/shtlp_0012/codes/RAG/modern_history_combined.txt")
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        data_file_path = os.path.join(project_root, "data", "raw", "modern_history_combined.txt")
+        uploader = ChunkUploader(data_file_path)
         uploader.run()
     except Exception as e:
-        print(f"Error during script execution: {e}")
+        logger.error(f"Error during script execution: {e}")

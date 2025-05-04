@@ -1,9 +1,26 @@
 import os
 import requests
 import pandas as pd
+import logging
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from time import sleep
 from typing import List
+
+# Set up logging
+current_dir = os.path.dirname(os.path.abspath(__file__))
+output_dir = os.path.join(current_dir, 'output')
+os.makedirs(output_dir, exist_ok=True)
+log_file = os.path.join(output_dir, 'question_gen.log')
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_file, mode='a'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Constants
 OLLAMA_URL = "http://localhost:11434/api/generate"
@@ -46,10 +63,10 @@ class LLaMAQuestionGenerator:
             with open(path, "r", encoding="utf-8") as f:
                 return f.read()
         except FileNotFoundError:
-            print(f"❌ File not found: {path}")
+            logger.error(f"❌ File not found: {path}")
             return ""
         except Exception as e:
-            print(f"❌ Error loading text: {e}")
+            logger.error(f"❌ Error loading text: {e}")
             return ""
 
     def split_text_semantic(self, text: str, chunk_size: int = 800, chunk_overlap: int = 100) -> List[str]:
@@ -73,7 +90,7 @@ class LLaMAQuestionGenerator:
             )
             return splitter.split_text(text)
         except Exception as e:
-            print(f"❌ Error splitting text: {e}")
+            logger.error(f"❌ Error splitting text: {e}")
             return []
 
     def query_llama(self, prompt: str) -> str:
@@ -113,7 +130,7 @@ class LLaMAQuestionGenerator:
         """
         questions, answers = [], []
         total = min(total, len(chunks))
-        print("\U0001F680 Generating Q&A...")
+        logger.info("\U0001F680 Generating Q&A...")
 
         for i, chunk in enumerate(chunks[:total]):
             prompt = f"""
@@ -145,12 +162,12 @@ Historical text:
                     answers.append(current_answer)
 
                 percent = int(((i + 1) / total) * 100)
-                print(f"Progress: {percent}% ({i+1}/{total})", end='\r')
+                logger.info(f"Progress: {percent}% ({i+1}/{total})")
                 sleep(0.2)
             except Exception as e:
-                print(f"\n❌ Error in chunk {i+1}: {e}")
+                logger.error(f"\n❌ Error in chunk {i+1}: {e}")
 
-        print("\n✅ Q&A generation complete!")
+        logger.info("\n✅ Q&A generation complete!")
         return pd.DataFrame({"Question": questions, "Answer": answers})
 
     def save_to_csv(self, df: pd.DataFrame, output_path: str) -> None:
@@ -163,16 +180,22 @@ Historical text:
         """
         try:
             df.to_csv(output_path, index=False)
-            print(f"✅ Saved {len(df)} Q&A pairs to {output_path}")
+            logger.info(f"✅ Saved {len(df)} Q&A pairs to {output_path}")
         except Exception as e:
-            print(f"❌ Error saving CSV: {e}")
+            logger.error(f"❌ Error saving CSV: {e}")
 
 
 if __name__ == "__main__":
     generator = LLaMAQuestionGenerator()
-    raw_text = generator.load_text("data/modern_history_combined.txt")
+    
+    # Get the correct paths using the project structure
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    input_file = os.path.join(project_root, "data", "raw", "modern_history_combined.txt")
+    output_file = os.path.join(project_root, "data", "qa_pairs", "qa_dataset_1000_part2.csv")
+    
+    raw_text = generator.load_text(input_file)
     if raw_text:
         chunks = generator.split_text_semantic(raw_text)
         if chunks:
             qa_df = generator.generate_qa_pairs(chunks)
-            generator.save_to_csv(qa_df, "data/qa_dataset_1000_part2.csv")
+            generator.save_to_csv(qa_df, output_file)

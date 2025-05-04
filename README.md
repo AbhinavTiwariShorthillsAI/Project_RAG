@@ -4,6 +4,8 @@
 - [Project Overview](#-project-overview)
 - [Why World War Data](#-why-world-war-data)
 - [Project Architecture](#-project-architecture)
+- [Project Structure](#-project-structure)
+- [Logging System](#-logging-system)
 - [Web Scraping](#-web-scraping)
 - [Chunking Techniques](#-chunking-techniques-fixed-vs-semantic)
 - [Docker Volume for Persistent Weaviate](#-docker-volume-for-persistent-weaviate)
@@ -27,6 +29,7 @@ This project implements a Retrieval-Augmented Generation (RAG) pipeline tailored
 - Local LLMs (Mistral, LLaMA3 via Ollama)
 - Streamlit interface for chatbot
 - Evaluation pipeline with custom metrics and RAGAS-based scores
+- Comprehensive logging system for all components
 
 
 ## 🔍 Why World War Data?
@@ -42,6 +45,84 @@ This project implements a Retrieval-Augmented Generation (RAG) pipeline tailored
 
 ![Architecture](assets/Project_architecture.png)
 
+## 📂 Project Structure
+
+The project follows a modular structure for better organization:
+
+```
+Project_RAG/
+├── app/                  # Core application components
+│   ├── embedding.py      # Handles text embeddings 
+│   └── output/           # Log files for app components
+│
+├── data/                 # Data storage and organization
+│   ├── raw/              # Raw scraped text (e.g., modern_history_combined.txt)
+│   ├── qa_pairs/         # Generated question-answer pairs (CSV)
+│   ├── processed/        # Processed data files (e.g., predictions)
+│   └── evaluation/       # Evaluation results and metrics
+│
+├── scripts/              # Implementation scripts
+│   ├── scraper.py        # Web scraping implementation
+│   ├── question_gen.py   # Question generation using LLMs
+│   ├── testing_data.py   # RAG question answering implementation
+│   ├── testing.py        # Custom evaluation implementation
+│   ├── raga_test.py      # RAGAS evaluation implementation 
+│   ├── ragas_test_data.py# Process RAGAS evaluation data
+│   └── output/           # Log files for scripts
+│
+├── test/                 # Test suites and test cases
+│   ├── embedding_test.py # Tests for embedding functionality
+│   ├── question_gen_test.py # Tests for question generation
+│   ├── rag_qa_test.py    # Tests for RAG QA pipeline
+│   ├── scraper_test.py   # Tests for web scraper
+│   ├── ragas_test_data_test.py # Tests for RAGAS data handling
+│   ├── testing_test.py   # Tests for evaluation metrics
+│   └── logs/             # Log files for test execution
+│
+├── streamlit_app/        # Streamlit UI components
+│
+├── weaviate_data/        # Persistent storage for vector database
+│
+└── requirements.txt      # Project dependencies
+```
+
+## 📝 Logging System
+
+The project implements a comprehensive logging system across all components:
+
+### Key Features:
+
+- **Consistent Format**: All logs follow a standardized format with timestamp, module name, log level, and message
+- **Local Log Storage**: Each component stores logs in its local output directory:
+  - Implementation files (scripts/app): Logs in `output/` subdirectory
+  - Test files: Logs in `test/logs/` directory
+- **Configurable Levels**: Default logging level is INFO, capturing normal operations and errors
+- **Dual Output**: Logs are written to both files and console output
+- **Error Tracking**: All exceptions are properly logged with traceback information
+- **Component-Specific Logs**: Each component has its own log file for easier debugging and monitoring
+
+### Example Log Configuration:
+
+```python
+import logging
+import os
+
+# Set up logging
+current_dir = os.path.dirname(os.path.abspath(__file__))
+output_dir = os.path.join(current_dir, 'output')
+os.makedirs(output_dir, exist_ok=True)
+log_file = os.path.join(output_dir, 'component_name.log')
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler(log_file),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+```
 
 ## 🕸️ Web Scraping
 
@@ -137,14 +218,35 @@ ollama pull llama3
 
 ### Running the Application
 
-1. Start the Streamlit application:
+1. Process the data pipeline:
+```bash
+# Scrape and embed data (if not already done)
+python3 scripts/scraper.py
+python3 app/embedding.py
+
+# Generate QA pairs
+python3 scripts/question_gen.py
+
+# Run RAG processing to generate answers
+python3 scripts/testing_data.py
+```
+
+2. Start the Streamlit application:
 ```bash
 cd streamlit_app
 streamlit run app.py
 ```
 
-2. Access the chatbot UI at http://localhost:8501
+3. Access the chatbot UI at http://localhost:8501
 
+### Running Tests
+```bash
+# Run individual test
+python3 -m unittest test/embedding_test.py
+
+# Run all tests
+python3 -m unittest discover -s test
+```
 
 # 📏 Evaluation Metrics (Custom)
 

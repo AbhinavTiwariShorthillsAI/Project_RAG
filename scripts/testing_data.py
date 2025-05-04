@@ -3,15 +3,35 @@ import requests
 import weaviate
 import numpy as np
 import csv
+import logging
 from openpyxl import Workbook, load_workbook
 from sentence_transformers import SentenceTransformer
 from typing import Generator, Dict, List, Optional, Any
 
+# Set up logging
+current_dir = os.path.dirname(os.path.abspath(__file__))
+output_dir = os.path.join(current_dir, 'output')
+os.makedirs(output_dir, exist_ok=True)
+log_file = os.path.join(output_dir, 'testing_data.log')
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler(log_file),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Get the correct paths using the project structure
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 # Constants
 OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "llama3"
-DATASET_PATH = "data/qa_dataset_1000_part2.csv"
-OUTPUT_XLSX = "data/qa_with_predictions_part2.xlsx"
+DATASET_PATH = os.path.join(project_root, "data", "qa_pairs", "qa_dataset_1000_part2.csv")
+OUTPUT_XLSX = os.path.join(project_root, "data", "processed", "qa_with_predictions_part2.xlsx")
 
 class RAGQuestionAnswering:
     """
@@ -33,13 +53,13 @@ class RAGQuestionAnswering:
         try:
             self.client = weaviate.Client("http://localhost:8080")
         except Exception as e:
-            print(f"Error connecting to Weaviate: {e}")
+            logger.error(f"Error connecting to Weaviate: {e}")
             raise
 
         try:
             self.embed_model = SentenceTransformer("intfloat/e5-base-v2")
         except Exception as e:
-            print(f"Error loading embedding model: {e}")
+            logger.error(f"Error loading embedding model: {e}")
             raise
 
     def search_weaviate(self, query: str, top_k: int = 3) -> List[str]:
@@ -66,7 +86,7 @@ class RAGQuestionAnswering:
 
             return [item["text"] for item in response["data"]["Get"]["WorldWarChunk"]]
         except Exception as e:
-            print(f"Error querying Weaviate: {e}")
+            logger.error(f"Error querying Weaviate: {e}")
             return []
 
     def query_llama(self, prompt: str) -> str:
@@ -89,7 +109,7 @@ class RAGQuestionAnswering:
             response.raise_for_status()
             return response.json().get("response", "").strip()
         except requests.exceptions.RequestException as e:
-            print(f"Error querying {OLLAMA_MODEL}: {e}")
+            logger.error(f"Error querying {OLLAMA_MODEL}: {e}")
             return f"Error querying {OLLAMA_MODEL}: {e}"
 
     def question_fetch(self, csv_file_path: str) -> Generator[Dict[str, str], None, None]:
@@ -113,7 +133,7 @@ class RAGQuestionAnswering:
                     if row and len(row) >= 2:
                         yield {"question": row[0], "answer": row[1]}
         except Exception as e:
-            print(f"Error reading CSV file {csv_file_path}: {e}")
+            logger.error(f"Error reading CSV file {csv_file_path}: {e}")
             raise
 
     def run(self) -> None:
@@ -130,14 +150,14 @@ class RAGQuestionAnswering:
         Raises:
             Exception: If file operations fail or other processing errors occur.
         """
-        print(f"\n🤖 World War History Q&A (Powered by {OLLAMA_MODEL})")
+        logger.info(f"🤖 World War History Q&A (Powered by {OLLAMA_MODEL})")
 
         if os.path.exists(OUTPUT_XLSX):
             try:
                 wb = load_workbook(OUTPUT_XLSX)
                 ws = wb.active
             except Exception as e:
-                print(f"Error opening Excel file {OUTPUT_XLSX}: {e}")
+                logger.error(f"Error opening Excel file {OUTPUT_XLSX}: {e}")
                 raise
         else:
             wb = Workbook()
@@ -151,7 +171,7 @@ class RAGQuestionAnswering:
             if not question.strip():
                 continue
 
-            print(f"\n❓ Question: {question}")
+            logger.info(f"❓ Question: {question}")
 
             context_chunks = self.search_weaviate(question)
             context = "\n".join(context_chunks)[:1500]
@@ -175,16 +195,16 @@ Answer:
 """
 
             predicted_answer = self.query_llama(prompt)
-            print(f"\n💬 Answer: {predicted_answer}\n")
+            logger.info(f"💬 Answer: {predicted_answer}")
 
             ws.append([question, ground_truth, predicted_answer, context])
             try:
                 wb.save(OUTPUT_XLSX)
             except Exception as e:
-                print(f"Error saving Excel file {OUTPUT_XLSX}: {e}")
+                logger.error(f"Error saving Excel file {OUTPUT_XLSX}: {e}")
                 raise
 
-        print(f"\n✅ All predictions saved to: {OUTPUT_XLSX}")
+        logger.info(f"✅ All predictions saved to: {OUTPUT_XLSX}")
 
 
 if __name__ == "__main__":
@@ -192,4 +212,4 @@ if __name__ == "__main__":
         rag_qa = RAGQuestionAnswering()
         rag_qa.run()
     except Exception as e:
-        print(f"Error during script execution: {e}")
+        logger.error(f"Error during script execution: {e}")
