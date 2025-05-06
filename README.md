@@ -51,39 +51,39 @@ The project follows a modular structure for better organization:
 
 ```
 Project_RAG/
-├── app/                  # Core application components
-│   ├── embedding.py      # Handles text embeddings 
-│   └── output/           # Log files for app components
+├── app/                          # Core application components
+│   ├── embedding.py              # Handles text embeddings 
+│   └── output/                   # Log files for app components
 │
-├── data/                 # Data storage and organization
-│   ├── raw/              # Raw scraped text (e.g., modern_history_combined.txt)
-│   ├── qa_pairs/         # Generated question-answer pairs (CSV)
-│   ├── processed/        # Processed data files (e.g., predictions)
-│   └── evaluation/       # Evaluation results and metrics
+├── data/                         # Data storage and organization
+│   ├── raw/                      # Raw scraped text (e.g., modern_history_combined.txt)
+│   ├── qa_pairs/                 # Generated question-answer pairs (CSV)
+│   ├── processed/                # Processed data files (e.g., predictions)
+│   └── evaluation/               # Evaluation results and metrics
 │
-├── scripts/              # Implementation scripts
-│   ├── scraper.py        # Web scraping implementation
-│   ├── question_gen.py   # Question generation using LLMs
-│   ├── testing_data.py   # RAG question answering implementation
-│   ├── testing.py        # Custom evaluation implementation
-│   ├── raga_test.py      # RAGAS evaluation implementation 
-│   ├── ragas_test_data.py# Process RAGAS evaluation data
-│   └── output/           # Log files for scripts
+├── scripts/                      # Implementation scripts
+│   ├── scraper.py                # Web scraping implementation
+│   ├── question_gen.py           # Question generation using LLMs
+│   ├── testing_data.py           # RAG question answering implementation
+│   ├── testing.py                # Custom evaluation implementation
+│   ├── raga_test.py              # RAGAS evaluation implementation 
+│   ├── ragas_test_data.py        # Process RAGAS evaluation data
+│   └── output/                   # Log files for scripts
 │
-├── test/                 # Test suites and test cases
-│   ├── embedding_test.py # Tests for embedding functionality
-│   ├── question_gen_test.py # Tests for question generation
-│   ├── rag_qa_test.py    # Tests for RAG QA pipeline
-│   ├── scraper_test.py   # Tests for web scraper
-│   ├── ragas_test_data_test.py # Tests for RAGAS data handling
-│   ├── testing_test.py   # Tests for evaluation metrics
-│   └── logs/             # Log files for test execution
+├── test/                         # Test suites and test cases
+│   ├── embedding_test.py         # Tests for embedding functionality
+│   ├── question_gen_test.py      # Tests for question generation
+│   ├── rag_qa_test.py            # Tests for RAG QA pipeline
+│   ├── scraper_test.py           # Tests for web scraper
+│   ├── ragas_test_data_test.py   # Tests for RAGAS data handling
+│   ├── testing_test.py           # Tests for evaluation metrics
+│   └── logs/                     # Log files for test execution
 │
-├── streamlit_app/        # Streamlit UI components
+├── streamlit_app/                # Streamlit UI components
 │
-├── weaviate_data/        # Persistent storage for vector database
+├── weaviate_data/                # Persistent storage for vector database
 │
-└── requirements.txt      # Project dependencies
+└── requirements.txt              # Project dependencies
 ```
 
 ## 📝 Logging System
