@@ -7,6 +7,7 @@ import csv
 import logging
 from io import StringIO
 from typing import Dict, List, Any
+import re
 
 # Add the project root to the Python path to properly resolve imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -31,6 +32,7 @@ logger.info("Starting RAGAS test data processing test suite.")
 
 # Import the functions to be tested
 from scripts.ragas_test_data import read_scores_from_csv, compute_averages, save_summary_to_json, main
+from scripts.raga_test import build_prompt, extract_scores
 
 class TestRagasTestData(unittest.TestCase):
     """
@@ -226,6 +228,112 @@ N/A,invalid,error,bad
         mock_save.assert_called_once_with(self.expected_averages, "data/evaluation_summary_ragas_mistral.json")
         logger.info("main function test passed.")
 
+class TestRagasTestFunctions(unittest.TestCase):
+    """
+    Test suite for RAGAS test script functions.
+    
+    Tests the functionality of `build_prompt` and `extract_scores` functions.
+    """
+    
+    def test_build_prompt(self):
+        """
+        Test the build_prompt function to ensure it correctly formats the evaluation prompt.
+        
+        Asserts:
+            The prompt contains all required components in the expected format
+        """
+        logger.info("Testing build_prompt function.")
+        
+        # Test data
+        question = "When did World War II end?"
+        answer = "World War II ended in 1945."
+        predicted_answer = "The Second World War ended in 1945 with victory for the Allies."
+        context = "World War II was a global conflict that lasted from 1939 to 1945. The war ended with the victory of the Allied Powers."
+        
+        # Get the prompt
+        prompt = build_prompt(question, answer, predicted_answer, context)
+        
+        # Check that the prompt contains the key elements
+        self.assertIn(question, prompt)
+        self.assertIn(answer, prompt)
+        self.assertIn(predicted_answer, prompt)
+        self.assertIn(context, prompt)
+        
+        # Check that it contains the evaluation criteria
+        self.assertIn("Faithfulness", prompt)
+        self.assertIn("Answer Relevancy", prompt)
+        self.assertIn("Context Precision", prompt)
+        self.assertIn("Context Recall", prompt)
+        
+        # Check that it specifies the format for response
+        self.assertIn("Return ONLY a Python-style list of 4 floats", prompt)
+        
+        logger.info("build_prompt test passed.")
+        
+    def test_extract_scores_valid_format(self):
+        """
+        Test the extract_scores function with properly formatted response text.
+        
+        Asserts:
+            The function correctly extracts the 4 float scores from the response
+        """
+        logger.info("Testing extract_scores with valid format.")
+        
+        # Test cases with various valid formats
+        test_cases = [
+            # Standard format
+            "[0.95521, 0.85312, 0.91230, 0.85428]",
+            # Extra spaces
+            "[  0.95521  ,  0.85312  ,  0.91230  ,  0.85428  ]",
+            # Different values
+            "[0.12345, 0.67890, 0.11111, 0.99999]",
+            # With text before and after (should still work)
+            "Some text before [0.95521, 0.85312, 0.91230, 0.85428] and after",
+        ]
+        
+        expected_results = [
+            [0.95521, 0.85312, 0.91230, 0.85428],
+            [0.95521, 0.85312, 0.91230, 0.85428],
+            [0.12345, 0.67890, 0.11111, 0.99999],
+            [0.95521, 0.85312, 0.91230, 0.85428],
+        ]
+        
+        for i, test_case in enumerate(test_cases):
+            scores = extract_scores(test_case)
+            self.assertEqual(len(scores), 4)
+            for j in range(4):
+                self.assertAlmostEqual(scores[j], expected_results[i][j])
+        
+        logger.info("extract_scores valid format test passed.")
+        
+    def test_extract_scores_invalid_format(self):
+        """
+        Test the extract_scores function with improperly formatted response text.
+        
+        Asserts:
+            The function returns a list of None values when format is invalid
+        """
+        logger.info("Testing extract_scores with invalid format.")
+        
+        # Test cases with invalid formats
+        test_cases = [
+            # Empty string
+            "",
+            # No brackets
+            "0.95521, 0.85312, 0.91230, 0.85428",
+            # Not enough values
+            "[0.95521, 0.85312, 0.91230]",
+            # Wrong type of values
+            "[abc, def, ghi, jkl]",
+            # Not even close
+            "This is not a valid response",
+        ]
+        
+        for test_case in test_cases:
+            scores = extract_scores(test_case)
+            self.assertEqual(scores, [None, None, None, None])
+        
+        logger.info("extract_scores invalid format test passed.")
 
 if __name__ == "__main__":
     unittest.main()
